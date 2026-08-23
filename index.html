@@ -357,11 +357,59 @@
             </div>
         </div>
 
-        <!-- Social Feed Tab -->
+        <!-- Social Intelligence Tab -->
         <div id="social" class="content">
-            <h2><i class="fab fa-twitter"></i> Social Media Monitoring</h2>
-            <div class="social-feed" id="socialFeed">
-                <!-- Social media posts will be populated here -->
+            <h2><i class="fab fa-twitter"></i> Social Disaster Intelligence</h2>
+            
+            <div id="socialDemoBanner" class="demo-banner" style="display: none; background: #f39c12; color: #fff; text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; font-size: 1.1rem; letter-spacing: 1px;">
+                <i class="fas fa-flask"></i> DEMO MODE • SIMULATED SOCIAL DATA
+            </div>
+            
+            <div class="dashboard-stats" style="margin-bottom: 20px;">
+                <div class="stat-card">
+                    <div class="stat-number" id="statSocialTotal">0</div>
+                    <div class="stat-label">Total Signals</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statSocialNew">0</div>
+                    <div class="stat-label">New Signals</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statSocialReview">0</div>
+                    <div class="stat-label">Under Review</div>
+                </div>
+                <div class="stat-card" style="background: rgba(39, 174, 96, 0.2); border-color: rgba(39, 174, 96, 0.5);">
+                    <div class="stat-number" id="statSocialVerified" style="color: #2ecc71;">0</div>
+                    <div class="stat-label">Verified Incidents</div>
+                </div>
+            </div>
+            
+            <div class="social-filters" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <strong><i class="fas fa-filter"></i> Filters:</strong>
+                <select id="filterSocialStatus" onchange="renderSocialSignals()" style="padding: 8px; border-radius: 4px; background: rgba(0,0,0,0.5); color: white; border: 1px solid #48cae4;">
+                    <option value="ALL">All Statuses</option>
+                    <option value="NEW">New</option>
+                    <option value="UNDER REVIEW">Under Review</option>
+                    <option value="VERIFIED">Verified</option>
+                    <option value="DISMISSED">Dismissed</option>
+                </select>
+                <select id="filterSocialHazard" onchange="renderSocialSignals()" style="padding: 8px; border-radius: 4px; background: rgba(0,0,0,0.5); color: white; border: 1px solid #48cae4;">
+                    <option value="ALL">All Hazards</option>
+                    <option value="flood">Flood</option>
+                    <option value="earthquake">Earthquake</option>
+                    <option value="cyclone">Cyclone</option>
+                    <option value="fire">Fire</option>
+                    <option value="landslide">Landslide</option>
+                </select>
+                <button class="btn" onclick="fetchSocialSignals()" style="margin-left: auto; background: #00b4d8; padding: 8px 15px;"><i class="fas fa-sync-alt"></i> Refresh Signals</button>
+            </div>
+            
+            <div id="socialFeedContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+                <!-- Social signals will be injected here -->
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #bdc3c7;">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p style="margin-top: 10px;">Analyzing social signals...</p>
+                </div>
             </div>
         </div>
 

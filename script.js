@@ -38,42 +38,14 @@ const API_BASE = window.location.origin.includes('3000')
     ? ''
     : 'http://localhost:3000';
 
-const sampleSocialPosts = [
-    {
-        platform: 'twitter',
-        user: '@IMDWeather',
-        content: 'RED ALERT: Heavy snowfall warning for Jammu & Kashmir and Himachal Pradesh. Avalanche risk high in mountainous areas.',
-        timestamp: new Date(Date.now() - 900000),
-        location: 'Northern India'
-    },
-    {
-        platform: 'twitter',
-        user: '@UttarakhandCOP',
-        content: 'URGENT: Evacuation advisory issued for villages near Rishiganga. Glacial lake monitoring shows concerning water levels.',
-        timestamp: new Date(Date.now() - 1800000),
-        location: 'Uttarakhand'
-    },
-    {
-        platform: 'facebook',
-        user: 'Mumbai Police',
-        content: 'Citizens advised to avoid waterlogged areas. Traffic diversions in place at Andheri and Kurla due to flooding.',
-        timestamp: new Date(Date.now() - 2700000),
-        location: 'Mumbai, Maharashtra'
-    },
-    {
-        platform: 'twitter',
-        user: '@NDRFIndia',
-        content: 'NDRF teams deployed in Odisha ahead of cyclone landfall. Rescue operations on standby.',
-        timestamp: new Date(Date.now() - 3600000),
-        location: 'Odisha'
-    }
-];
+// Social signals data
+let socialSignals = [];
 
 document.addEventListener('DOMContentLoaded', function () {
     initializeMap();
-    populateSocialFeed();
     setupFormHandlers();
     loadAppData();
+    fetchSocialSignals(); // Fetch social intelligence data
     checkAuth();
 
     document.addEventListener('click', function (event) {
@@ -491,6 +463,36 @@ function refreshMapMarkers() {
 
         mapMarkers.push(marker);
     });
+
+    // Render verified social signals
+    if (typeof socialSignals !== 'undefined') {
+        socialSignals.filter(s => s.status === 'VERIFIED' && s.latitude && s.longitude).forEach(signal => {
+            const marker = L.circleMarker([signal.latitude, signal.longitude], {
+                color: '#9b59b6', // Purple for social signals
+                fillColor: '#8e44ad',
+                fillOpacity: 0.8,
+                radius: 12, // Distinct size
+                weight: 3,
+                dashArray: '5, 5' // Dashed border to distinguish
+            }).addTo(map);
+
+            marker.bindPopup(`
+                <div style="min-width: 200px;">
+                    <div style="background: #9b59b6; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 0.8rem; font-weight: bold; margin-bottom: 10px;">
+                        <i class="fab fa-twitter"></i> SOCIAL SIGNAL
+                    </div>
+                    <h4>Potential ${signal.hazard_type.charAt(0).toUpperCase() + signal.hazard_type.slice(1)}</h4>
+                    <p><strong>Confidence:</strong> ${signal.confidence_score}%</p>
+                    <p><strong>Location:</strong> ${signal.location}</p>
+                    <p><strong>Time:</strong> ${new Date(signal.timestamp).toLocaleString()}</p>
+                    <p style="font-style: italic;">"${signal.text}"</p>
+                    <div style="color: green; margin-top: 10px;">✓ Verified Incident</div>
+                </div>
+            `);
+
+            mapMarkers.push(marker);
+        });
+    }
 }
 
 function getCurrentLocation() {
@@ -1005,33 +1007,130 @@ function populateRecentReports() {
         .join('');
 }
 
-function populateSocialFeed() {
-    const container = document.getElementById('socialFeed');
+async function fetchSocialSignals() {
+    try {
+        const response = await fetch(`${API_BASE}/api/social/signals`);
+        const data = await response.json();
+        
+        if (data.success) {
+            socialSignals = data.signals;
+            
+            // Check for simulated data
+            const hasSimulated = socialSignals.some(s => s.simulated);
+            const demoBanner = document.getElementById('socialDemoBanner');
+            if (demoBanner) {
+                demoBanner.style.display = hasSimulated ? 'block' : 'none';
+            }
+            
+            // Update stats
+            document.getElementById('statSocialTotal').textContent = socialSignals.length;
+            document.getElementById('statSocialNew').textContent = socialSignals.filter(s => s.status === 'NEW').length;
+            document.getElementById('statSocialReview').textContent = socialSignals.filter(s => s.status === 'UNDER REVIEW').length;
+            document.getElementById('statSocialVerified').textContent = socialSignals.filter(s => s.status === 'VERIFIED').length;
+            
+            renderSocialSignals();
+            
+            // Re-render map to include verified social signals if needed
+            refreshMapMarkers();
+        }
+    } catch (e) {
+        console.error('Failed to fetch social signals:', e);
+        document.getElementById('socialFeedContainer').innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #e74c3c;">Failed to load social intelligence data.</div>';
+    }
+}
 
-    container.innerHTML = sampleSocialPosts
-        .map(post => `
-            <div class="social-post">
-                <div class="social-header">
-                    <i class="fab fa-${post.platform}"
-                       style="color: ${post.platform === 'twitter' ? '#1DA1F2' : '#4267B2'};">
-                    </i>
+function renderSocialSignals() {
+    const container = document.getElementById('socialFeedContainer');
+    if (!container) return;
+    
+    const statusFilter = document.getElementById('filterSocialStatus').value;
+    const hazardFilter = document.getElementById('filterSocialHazard').value;
+    
+    let filtered = socialSignals.filter(s => {
+        if (statusFilter !== 'ALL' && s.status !== statusFilter) return false;
+        if (hazardFilter !== 'ALL' && s.hazard_type.toLowerCase() !== hazardFilter.toLowerCase()) return false;
+        return true;
+    });
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #bdc3c7;">No signals found matching filters.</div>';
+        return;
+    }
+    
+    const role = localStorage.getItem('coastwatchRole');
+    const isAdmin = role === 'ADMIN';
 
-                    <strong>${post.user}</strong>
-
-                    <span style="color: #bdc3c7;">
-                        • ${post.timestamp.toLocaleString()}
-                    </span>
+    container.innerHTML = filtered.map(signal => {
+        let statusColor = '#bdc3c7';
+        if (signal.status === 'NEW') statusColor = '#3498db';
+        if (signal.status === 'UNDER REVIEW') statusColor = '#f39c12';
+        if (signal.status === 'VERIFIED') statusColor = '#2ecc71';
+        if (signal.status === 'DISMISSED') statusColor = '#e74c3c';
+        
+        let actionsHtml = '';
+        if (isAdmin) {
+            actionsHtml = `
+                <div style="display: flex; gap: 10px; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                    ${signal.status === 'NEW' ? `<button onclick="handleSocialAction('${signal.id}', 'review')" style="flex: 1; background: #f39c12; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Review</button>` : ''}
+                    ${signal.status !== 'VERIFIED' ? `<button onclick="handleSocialAction('${signal.id}', 'verify')" style="flex: 1; background: #2ecc71; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Verify</button>` : ''}
+                    ${signal.status !== 'DISMISSED' ? `<button onclick="handleSocialAction('${signal.id}', 'dismiss')" style="flex: 1; background: #e74c3c; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Dismiss</button>` : ''}
                 </div>
+            `;
+        }
 
-                <p>${post.content}</p>
-
-                <div style="margin-top: 0.5rem; color: #bdc3c7;">
-                    <i class="fas fa-map-marker-alt"></i>
-                    ${post.location}
+        return `
+            <div class="report-form" style="background: rgba(255,255,255,0.05); padding: 15px; border: 1px solid rgba(255,255,255,0.1); position: relative;">
+                <div style="position: absolute; top: 15px; right: 15px; background: ${statusColor}; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">
+                    ${signal.status}
                 </div>
+                <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fab fa-${signal.source.toLowerCase() === 'x' ? 'twitter' : 'twitter'}" style="color: #1DA1F2; font-size: 1.2rem;"></i>
+                    <strong>${signal.author || 'Unknown User'}</strong>
+                    <span style="color: #bdc3c7; font-size: 0.85rem;">${new Date(signal.timestamp).toLocaleString()}</span>
+                </div>
+                <p style="margin-bottom: 15px; font-size: 0.95rem; line-height: 1.5;">"${signal.text}"</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
+                    <div><i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i> Hazard: <strong style="text-transform: capitalize;">${signal.hazard_type}</strong></div>
+                    <div><i class="fas fa-map-marker-alt" style="color: #e74c3c;"></i> Location: <strong>${signal.location}</strong></div>
+                    <div><i class="fas fa-tachometer-alt" style="color: ${signal.confidence_score > 75 ? '#2ecc71' : '#f39c12'};"></i> Confidence: <strong>${signal.confidence_score}%</strong></div>
+                    <div><i class="fas fa-users" style="color: #3498db;"></i> Corroboration: <strong>${signal.corroboration_count} reports</strong></div>
+                </div>
+                
+                ${actionsHtml}
             </div>
-        `)
-        .join('');
+        `;
+    }).join('');
+}
+
+async function handleSocialAction(id, action) {
+    const role = localStorage.getItem('coastwatchRole');
+    if (role !== 'ADMIN') {
+        showNotification('Access Denied. Only Administrators can verify or dismiss signals.', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/social/signals/${id}/${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Role': role
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(`Signal successfully marked as ${data.status}`, 'success');
+            fetchSocialSignals();
+        } else {
+            showNotification(data.error || 'Failed to perform action', 'error');
+        }
+    } catch (e) {
+        console.error('Error in handleSocialAction:', e);
+        showNotification('Network error while processing action', 'error');
+    }
 }
 
 function broadcastAlert() {

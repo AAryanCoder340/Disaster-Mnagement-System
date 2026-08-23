@@ -180,6 +180,31 @@ function migrateSchema() {
       FOREIGN KEY (assigned_to) REFERENCES users(id)
     );
 
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS social_signals (
+      id TEXT PRIMARY KEY,
+      source TEXT NOT NULL,
+      author TEXT,
+      text TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      hazard_type TEXT,
+      location TEXT,
+      latitude REAL,
+      longitude REAL,
+      confidence_score INTEGER NOT NULL DEFAULT 0,
+      corroboration_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'NEW',
+      simulated INTEGER NOT NULL DEFAULT 0,
+      raw_json TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS shelters (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

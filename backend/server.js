@@ -13,8 +13,10 @@ const incidentsRouter = require('./routes/incidents');
 const officialRouter = require('./routes/official');
 const sheltersRouter = require('./routes/shelters');
 const sosRouter = require('./routes/sos');
+const socialRouter = require('./routes/social');
 const { addClient } = require('./lib/sse');
 const { startOfficialIngest } = require('./services/ingest');
+const { startSocialIngest } = require('./services/socialIntelligence');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -50,6 +52,7 @@ app.use('/api/incidents', incidentsRouter);
 app.use('/api/official', officialRouter);
 app.use('/api/shelters', sheltersRouter);
 app.use('/api/sos', sosRouter);
+app.use('/api/social', socialRouter);
 
 app.use(express.static(frontendRoot));
 
@@ -74,4 +77,5 @@ app.listen(PORT, () => {
   console.log(`Open the app at http://localhost:${PORT}/`);
   console.log(`Database: ${process.env.DATABASE_PATH || './data/coastwatch.db'}`);
   startOfficialIngest();
+  startSocialIngest();
 });
