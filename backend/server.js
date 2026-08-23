@@ -72,7 +72,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`CoastWatch API running at http://localhost:${PORT}`);
   console.log(`Open the app at http://localhost:${PORT}/`);
   console.log(`Database: ${process.env.DATABASE_PATH || './data/coastwatch.db'}`);
