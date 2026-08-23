@@ -1013,11 +1013,19 @@ async function fetchSocialSignals() {
         if (data.success) {
             socialSignals = data.signals;
             
-            // Check for simulated data
+            // Update banner based on provider and simulated status
             const hasSimulated = socialSignals.some(s => s.simulated);
             const demoBanner = document.getElementById('socialDemoBanner');
             if (demoBanner) {
-                demoBanner.style.display = hasSimulated ? 'block' : 'none';
+                if (data.provider === 'x' && !hasSimulated) {
+                    demoBanner.style.display = 'block';
+                    demoBanner.style.background = '#2ecc71';
+                    demoBanner.innerHTML = '<i class="fas fa-satellite-dish"></i> LIVE X DATA • OFFICIAL API';
+                } else {
+                    demoBanner.style.display = 'block';
+                    demoBanner.style.background = '#f39c12';
+                    demoBanner.innerHTML = '<i class="fas fa-flask"></i> DEMO MODE • SIMULATED SOCIAL DATA';
+                }
             }
             
             // Update stats

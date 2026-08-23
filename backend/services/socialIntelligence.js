@@ -53,6 +53,8 @@ const CITY_LOCATIONS = {
   'surat': { name: 'Surat, Gujarat', lat: 21.1702, lng: 72.8311 }
 };
 
+const SOCIAL_SEARCH_QUERY = '(flood OR flooding OR waterlogging OR earthquake OR tremor OR cyclone OR storm OR landslide OR mudslide OR wildfire OR fire) -is:retweet';
+
 class SocialIntelligenceService {
   constructor() {
     this.provider = process.env.SOCIAL_DATA_PROVIDER || 'mock';
@@ -88,15 +90,58 @@ class SocialIntelligenceService {
   }
 
   async fetchXData() {
-    // Basic implementation to show where X API would go.
     console.log('Fetching data from X API...');
     try {
-      // In production we would hit https://api.twitter.com/2/tweets/search/recent
-      return []; 
+      const url = new URL('https://api.twitter.com/2/tweets/search/recent');
+      url.searchParams.append('query', SOCIAL_SEARCH_QUERY);
+      url.searchParams.append('tweet.fields', 'created_at,author_id');
+      url.searchParams.append('expansions', 'author_id');
+      url.searchParams.append('user.fields', 'username');
+      url.searchParams.append('max_results', '15'); // Limit to 15 for demo
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          'Authorization': `Bearer ${this.bearerToken}`
+        }
+      });
+
+      if (!response.ok) {
+        console.error(`X API request failed: ${response.status} ${response.statusText}`);
+        throw new Error('X API Error');
+      }
+
+      const data = await response.json();
+      return this.normalizeXPost(data);
     } catch (e) {
-      console.error('X API Error, falling back to mock', e);
+      console.error('X API Error, falling back to mock. Details:', e.message);
+      // Let UI know we are in fallback mode
+      broadcast({ type: 'SOCIAL_PROVIDER_FALLBACK' });
       return this.fetchMockData();
     }
+  }
+
+  normalizeXPost(apiResponse) {
+    if (!apiResponse || !apiResponse.data) return [];
+    
+    // Create a map for quick user lookups
+    const userMap = {};
+    if (apiResponse.includes && apiResponse.includes.users) {
+      apiResponse.includes.users.forEach(user => {
+        userMap[user.id] = user.username;
+      });
+    }
+
+    return apiResponse.data.map(tweet => {
+      const username = userMap[tweet.author_id];
+      return {
+        id: tweet.id,
+        author: username ? `@${username}` : 'Unknown Author',
+        text: tweet.text,
+        timestamp: tweet.created_at || new Date().toISOString(),
+        source: 'X',
+        simulated: false
+      };
+    });
   }
 
   async analyzePost(post) {
@@ -191,7 +236,8 @@ class SocialIntelligenceService {
     `);
     
     let added = 0;
-    db.transaction(() => {
+    try {
+      db.exec('BEGIN TRANSACTION');
       for (const sig of signals) {
         const res = stmt.run(
           sig.id, sig.source, sig.author, sig.text, sig.timestamp, 
@@ -201,7 +247,11 @@ class SocialIntelligenceService {
         );
         if (res.changes > 0) added++;
       }
-    })();
+      db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      console.error('Transaction failed:', e);
+    }
     
     if (added > 0) {
       broadcast({ type: 'SOCIAL_SIGNALS_UPDATED' });
