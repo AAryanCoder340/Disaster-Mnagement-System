@@ -1152,78 +1152,77 @@
         .sos-summary-tile.active .sos-summary-number { color: #48cae4; }
         .sos-summary-tile.progress .sos-summary-number { color: #7dc4ff; }
         .sos-summary-tile.done .sos-summary-number { color: #48cae4; }
- / *   L o g i n   S c r e e n   S t y l e s   * / 
- . l o g i n - c o n t a i n e r   { 
-         d i s p l a y :   f l e x ; 
-         j u s t i f y - c o n t e n t :   c e n t e r ; 
-         a l i g n - i t e m s :   c e n t e r ; 
-         h e i g h t :   1 0 0 v h ; 
-         w i d t h :   1 0 0 % ; 
-         p o s i t i o n :   a b s o l u t e ; 
-         t o p :   0 ; 
-         l e f t :   0 ; 
-         z - i n d e x :   9 9 9 9 ; 
-         b a c k g r o u n d :   l i n e a r - g r a d i e n t ( 1 3 5 d e g ,   # 1 e 3 c 7 2 ,   # 2 a 5 2 9 8 ) ; 
- } 
- 
- . l o g i n - b o x   { 
-         b a c k g r o u n d :   r g b a ( 0 ,   0 ,   0 ,   0 . 5 ) ; 
-         p a d d i n g :   3 r e m ; 
-         b o r d e r - r a d i u s :   1 2 p x ; 
-         b o x - s h a d o w :   0   8 p x   3 2 p x   r g b a ( 0 ,   0 ,   0 ,   0 . 5 ) ; 
-         t e x t - a l i g n :   c e n t e r ; 
-         m a x - w i d t h :   4 0 0 p x ; 
-         w i d t h :   9 0 % ; 
-         b o r d e r :   1 p x   s o l i d   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 1 ) ; 
- } 
- 
- . l o g i n - l o g o   { 
-         f o n t - s i z e :   2 . 5 r e m ; 
-         f o n t - w e i g h t :   b o l d ; 
-         c o l o r :   # 0 0 b 4 d 8 ; 
-         m a r g i n - b o t t o m :   1 . 5 r e m ; 
-         d i s p l a y :   f l e x ; 
-         f l e x - d i r e c t i o n :   c o l u m n ; 
-         a l i g n - i t e m s :   c e n t e r ; 
-         g a p :   1 0 p x ; 
- } 
- 
- . l o g i n - b o x   h 2   { 
-         m a r g i n - b o t t o m :   0 . 5 r e m ; 
-         c o l o r :   # f 4 f 4 f 4 ; 
- } 
- 
- . l o g i n - b o x   p   { 
-         c o l o r :   # b d c 3 c 7 ; 
-         m a r g i n - b o t t o m :   2 r e m ; 
-         f o n t - s i z e :   0 . 9 5 r e m ; 
- } 
-  
- 
- / *   S o c i a l   I n t e l l i g e n c e   D a s h b o a r d   S t y l e s   * / 
- . d a s h b o a r d - s t a t s   { 
-         d i s p l a y :   g r i d ; 
-         g r i d - t e m p l a t e - c o l u m n s :   r e p e a t ( a u t o - f i t ,   m i n m a x ( 2 0 0 p x ,   1 f r ) ) ; 
-         g a p :   1 5 p x ; 
- } 
- . s t a t - c a r d   { 
-         b a c k g r o u n d :   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 0 5 ) ; 
-         b o r d e r :   1 p x   s o l i d   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 1 ) ; 
-         b o r d e r - r a d i u s :   8 p x ; 
-         p a d d i n g :   1 5 p x ; 
-         t e x t - a l i g n :   c e n t e r ; 
- } 
- . s t a t - n u m b e r   { 
-         f o n t - s i z e :   2 r e m ; 
-         f o n t - w e i g h t :   b o l d ; 
-         c o l o r :   # 4 8 c a e 4 ; 
-         m a r g i n - b o t t o m :   5 p x ; 
- } 
- . s t a t - l a b e l   { 
-         f o n t - s i z e :   0 . 9 r e m ; 
-         c o l o r :   # b d c 3 c 7 ; 
-         t e x t - t r a n s f o r m :   u p p e r c a s e ; 
-         l e t t e r - s p a c i n g :   1 p x ; 
- } 
-  
- 
+/* Login Screen Styles */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+}
+
+.login-box {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 3rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.login-logo {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #00b4d8;
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.login-box h2 {
+    margin-bottom: 0.5rem;
+    color: #f4f4f4;
+}
+
+.login-box p {
+    color: #bdc3c7;
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+}
+
+
+/* Social Intelligence Dashboard Styles */
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+.stat-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+}
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #48cae4;
+    margin-bottom: 5px;
+}
+.stat-label {
+    font-size: 0.9rem;
+    color: #bdc3c7;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
