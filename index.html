@@ -58,6 +58,9 @@
                     <div class="logo-menu-item" onclick="showTab('social'); toggleLogoMenu();">
                         <span>📢 Community Reports</span>
                     </div>
+                    <div class="logo-menu-item" onclick="showTab('risk'); toggleLogoMenu();">
+                        <span>📊 Future Risk Estimate</span>
+                    </div>
                     <div class="logo-menu-item" onclick="showSafetyTips(); toggleLogoMenu();">
                         <span>📘 Safety Tips</span>
                     </div>
@@ -89,6 +92,9 @@
             <button class="tab" onclick="showTab('shelters')">
                 <i class="fas fa-home"></i> Find Shelter
             </button>
+            <button class="tab" onclick="showTab('risk')">
+                <i class="fas fa-chart-area"></i> Risk Estimate
+            </button>
             <button class="tab" onclick="showTab('safety')">
                 <i class="fas fa-shield-alt"></i> Safety Tips
             </button>
@@ -99,7 +105,27 @@
 
         <!-- Map Tab -->
         <div id="map" class="content active">
-            <h2><i class="fas fa-map-marked-alt"></i> India Hazard Map</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                <h2 style="margin: 0;"><i class="fas fa-map-marked-alt"></i> India Hazard Map</h2>
+                <div class="map-filter-bar" style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                    <span id="mapPointCounter" class="risk-band-pill pill-low" style="font-size: 0.82rem; padding: 4px 10px; font-weight: 600;">
+                        <i class="fas fa-dot-circle"></i> Active Hazards: 0
+                    </span>
+                    <select id="mapSeverityFilter" onchange="refreshMapMarkers()" style="width: auto; padding: 6px 12px; font-size: 0.85rem; margin: 0; background: rgba(15,23,42,0.85); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">
+                        <option value="all">All Severities</option>
+                        <option value="high">High Risk (🔴)</option>
+                        <option value="medium">Medium Risk (🟠)</option>
+                        <option value="low">Low Risk (🟢)</option>
+                    </select>
+                    <select id="mapHazardTypeFilter" onchange="refreshMapMarkers()" style="width: auto; padding: 6px 12px; font-size: 0.85rem; margin: 0; background: rgba(15,23,42,0.85); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">
+                        <option value="all">All Hazard Types</option>
+                        <option value="flood">Floods</option>
+                        <option value="cyclone">Cyclones / Storms</option>
+                        <option value="tsunami">Tsunami / Coastal</option>
+                        <option value="fire">Fires</option>
+                    </select>
+                </div>
+            </div>
             <div class="map-container" id="mapContainer"></div>
             <div class="reports-grid" id="recentReports">
                 <!-- Recent reports will be populated here -->
@@ -482,6 +508,81 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Future risk estimate (not disaster prediction) -->
+        <div id="risk" class="content">
+            <h2><i class="fas fa-chart-area"></i> Future Risk Estimate</h2>
+
+            <div class="report-form">
+                <h3><i class="fas fa-search-location"></i> Estimate for a location</h3>
+                <p style="color: #bdc3c7; font-size: 0.95rem; margin-bottom: 1.2rem;">
+                    Combines nearby historical disaster records with current ingested weather and official alerts.
+                    If coverage is too thin, the system withholds a number instead of guessing.
+                </p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="riskLatitude">Latitude</label>
+                        <input type="number" step="any" id="riskLatitude" placeholder="e.g. 19.0760">
+                    </div>
+                    <div class="form-group">
+                        <label for="riskLongitude">Longitude</label>
+                        <input type="number" step="any" id="riskLongitude" placeholder="e.g. 72.8777">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="riskRadius">Search radius (km)</label>
+                        <input type="number" id="riskRadius" value="80" min="5" max="400">
+                    </div>
+                    <div class="form-group">
+                        <label for="riskHorizon">Time window (hours)</label>
+                        <input type="number" id="riskHorizon" value="48" min="6" max="168">
+                    </div>
+                </div>
+                <div class="form-group full-width">
+                    <label for="riskLocationName">Location label (optional)</label>
+                    <input type="text" id="riskLocationName" placeholder="e.g. Mumbai coast">
+                </div>
+
+                <div style="border-top: 1px dashed rgba(168, 218, 220, 0.25); margin: 1rem 0; padding-top: 1rem;">
+                    <h4 style="margin: 0 0 0.8rem 0;"><i class="fas fa-database"></i> Pull real historical disaster data</h4>
+                    <p style="color: #a9c6de; font-size: 0.85rem; margin: 0 0 0.8rem 0;">
+                        Data source: <strong>India Flood & Disaster Inventory (1967–2023) / NRSC-ISRO & NASA EONET</strong>.
+                        Real historical records; no data is fabricated.
+                    </p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="riskStartDate">Historical start date</label>
+                            <input type="date" id="riskStartDate">
+                        </div>
+                        <div class="form-group">
+                            <label for="riskEndDate">Historical end date</label>
+                            <input type="date" id="riskEndDate">
+                        </div>
+                    </div>
+                    <div id="lastHistoricalSync" class="location-display" style="display:none; margin-bottom: 0.8rem; font-size: 0.85rem;"></div>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                        <button type="button" class="btn" onclick="getRiskLocation()">
+                            <i class="fas fa-crosshairs"></i> Use My Current Location
+                        </button>
+                        <button type="button" class="btn btn-primary" id="fetchHistoricalBtn" onclick="fetchHistoricalAndRisk()" style="background:#2a9d8f;">
+                            <i class="fas fa-cloud-download-alt"></i> Fetch Historical Data
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="estimateLocationRisk()" style="background:#00b4d8;">
+                            <i class="fas fa-calculator"></i> Estimate risk
+                        </button>
+                        <button type="button" class="btn" onclick="scanRiskAreas()">
+                            <i class="fas fa-map"></i> Areas with enough history
+                        </button>
+                    </div>
+                </div>
+
+                <div id="riskStatus" class="location-display" style="display: none; margin-top: 1rem;"></div>
+            </div>
+
+            <div id="riskResultArea" style="display: none;"></div>
+            <div id="riskScanArea" style="display: none; margin-top: 1rem;"></div>
         </div>
 
         <!-- Shelters / Find Shelter Tab -->

@@ -14,6 +14,8 @@ const officialRouter = require('./routes/official');
 const sheltersRouter = require('./routes/shelters');
 const sosRouter = require('./routes/sos');
 const socialRouter = require('./routes/social');
+const riskRouter = require('./routes/risk');
+const historicalDataRouter = require('./routes/historical_data');
 const { addClient } = require('./lib/sse');
 const { startOfficialIngest } = require('./services/ingest');
 const { startSocialIngest } = require('./services/socialIntelligence');
@@ -53,6 +55,8 @@ app.use('/api/official', officialRouter);
 app.use('/api/shelters', sheltersRouter);
 app.use('/api/sos', sosRouter);
 app.use('/api/social', socialRouter);
+app.use('/api/risk', riskRouter);
+app.use('/api/historical-data', historicalDataRouter);
 
 app.use(express.static(frontendRoot));
 

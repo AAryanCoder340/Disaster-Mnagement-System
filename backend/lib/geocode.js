@@ -49,7 +49,28 @@ function centroidOfPolygon(capPolygon) {
   return { latitude: lat, longitude: lng };
 }
 
+function nearestPlace(lat, lng) {
+  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return null;
+  let best = null;
+  let minKm = Infinity;
+  for (const place of PLACE_CENTROIDS) {
+    const dLat = (place.lat - lat) * (Math.PI / 180);
+    const dLng = (place.lng - lng) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat * (Math.PI / 180)) * Math.cos(place.lat * (Math.PI / 180)) * Math.sin(dLng / 2) ** 2;
+    const km = 6371 * 2 * Math.asin(Math.sqrt(a));
+    if (km < minKm) {
+      minKm = km;
+      best = { name: place.name.charAt(0).toUpperCase() + place.name.slice(1), km: +km.toFixed(1) };
+    }
+  }
+  return best;
+}
+
 module.exports = {
+  PLACE_CENTROIDS,
   geocodePlace,
-  centroidOfPolygon
+  centroidOfPolygon,
+  nearestPlace
 };

@@ -191,7 +191,8 @@ class SocialIntelligenceService {
     `);
     
     let added = 0;
-    db.transaction(() => {
+    db.exec('BEGIN');
+    try {
       for (const sig of signals) {
         const res = stmt.run(
           sig.id, sig.source, sig.author, sig.text, sig.timestamp, 
@@ -199,9 +200,13 @@ class SocialIntelligenceService {
           sig.confidence_score, sig.corroboration_count, sig.status, 
           sig.simulated, sig.raw_json
         );
-        if (res.changes > 0) added++;
+        if (res && res.changes > 0) added++;
       }
-    })();
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
     
     if (added > 0) {
       broadcast({ type: 'SOCIAL_SIGNALS_UPDATED' });

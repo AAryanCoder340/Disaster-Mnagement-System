@@ -152,7 +152,61 @@ function startOfficialIngest() {
   setInterval(run, minutes * 60 * 1000);
 }
 
+async function fetchLiveEnvironmentalSignals({ latitude, longitude, locationName }) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${Number(latitude).toFixed(4)}&longitude=${Number(longitude).toFixed(4)}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&hourly=precipitation&forecast_days=2`;
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!response.ok) return null;
+    const json = await response.json();
+    const cur = json.current || {};
+    const hourly = json.hourly?.precipitation || [];
+    const forecastRain = hourly.slice(0, 24).reduce((sum, v) => sum + (Number(v) || 0), 0);
+
+    const db = getDb();
+    const externalId = `WEATHER:${Number(latitude).toFixed(3)}:${Number(longitude).toFixed(3)}:${new Date().toISOString().slice(0, 13)}`;
+    const nowIso = new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+    db.prepare(`
+      INSERT INTO weather_observations (
+        id, source, source_type, external_id, location_name, latitude, longitude,
+        observed_at, fetched_at, rainfall_mm, temperature, description, raw_json
+      ) VALUES (?, 'OPEN_METEO', 'WEATHER_OBSERVATION', ?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?)
+      ON CONFLICT(external_id) DO UPDATE SET
+        rainfall_mm = excluded.rainfall_mm,
+        temperature = excluded.temperature,
+        fetched_at = datetime('now'),
+        raw_json = excluded.raw_json
+    `).run(
+      uuidv4(),
+      externalId,
+      locationName || `Live Weather Station (${Number(latitude).toFixed(2)}, ${Number(longitude).toFixed(2)})`,
+      Number(latitude),
+      Number(longitude),
+      nowIso,
+      Number(cur.precipitation || 0),
+      Number(cur.temperature_2m || null),
+      `Temp: ${cur.temperature_2m}°C, Humidity: ${cur.relative_humidity_2m}%, Wind: ${cur.wind_speed_10m} km/h, Rain: ${cur.precipitation} mm`,
+      JSON.stringify({
+        'Last 24 hrs Rainfall': Number(cur.precipitation || 0),
+        'Next 24 hrs Forecast': +forecastRain.toFixed(1),
+        'Temperature': Number(cur.temperature_2m || null),
+        'Humidity': Number(cur.relative_humidity_2m || null),
+        'Wind Speed': Number(cur.wind_speed_10m || null)
+      })
+    );
+    return true;
+  } catch (err) {
+    console.error('Error fetching live environmental signals:', err.message);
+    return null;
+  }
+}
+
 module.exports = {
   ingestOfficialSources,
-  startOfficialIngest
+  startOfficialIngest,
+  fetchLiveEnvironmentalSignals
 };

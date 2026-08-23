@@ -34,7 +34,9 @@ const SOS_STATUS_NOTE = {
   RESOLVED: 'This SOS incident has been marked as resolved. Stay safe.'
 };
 
-const API_BASE = 'https://sih-project-0bu6.onrender.com';
+const API_BASE = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http') && !window.location.origin.includes('file://'))
+    ? window.location.origin
+    : 'http://localhost:3000';
 
 // Social signals data
 let socialSignals = [];
@@ -377,6 +379,11 @@ function showTab(tabName) {
         loadDashboardStats();
         loadAuthoritySosList();
     }
+
+    if (tabName === 'risk') {
+        initializeHistoricalDateDefaults();
+        loadHistoricalSyncStatus();
+    }
 }
 
 function initializeMap() {
@@ -418,78 +425,152 @@ function clearMapMarkers() {
     mapMarkers = [];
 }
 
+function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
 function refreshMapMarkers() {
     if (!map) return;
 
     clearMapMarkers();
 
-    reports.forEach((report) => {
-        if (!report.coordinates) return;
+    const sevFilter = document.getElementById('mapSeverityFilter')?.value || 'all';
+    const typeFilter = document.getElementById('mapHazardTypeFilter')?.value || 'all';
 
-        if (isTestNoiseReport(report)) return;
+    // 1. Filter only active, non-historical, valid coordinate reports
+    const activeReports = reports.filter((report) => {
+        if (!report.coordinates || !Array.isArray(report.coordinates)) return false;
+        const [lat, lng] = report.coordinates;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+        if (isTestNoiseReport(report)) return false;
+        if (report.isHistorical) return false;
+        if (report.sourceType && String(report.sourceType).startsWith('HISTORICAL_')) return false;
+        if (report.incidentStatus === 'archived') return false;
 
-        const color = report.severity === 'high'
-            ? 'red'
-            : report.severity === 'medium'
-                ? 'orange'
-                : 'green';
+        if (sevFilter !== 'all' && report.severity !== sevFilter) return false;
+        if (typeFilter !== 'all') {
+            const t = String(report.type || report.disasterType || '').toLowerCase();
+            if (!t.includes(typeFilter.toLowerCase())) return false;
+        }
+        return true;
+    });
 
-        const markerSize = report.severity === 'high' ? 15 : 10;
+    // 2. Spatial clustering: group points within 30km into consolidated representative clusters
+    const clusters = [];
+    const CLUSTER_RADIUS_KM = 30;
 
-        const marker = L.circleMarker(report.coordinates, {
-            color: color,
+    for (const report of activeReports) {
+        const [lat, lng] = report.coordinates;
+        let matchedCluster = null;
+
+        for (const c of clusters) {
+            const dist = calculateDistanceKm(lat, lng, c.latitude, c.longitude);
+            if (dist <= CLUSTER_RADIUS_KM) {
+                matchedCluster = c;
+                break;
+            }
+        }
+
+        if (matchedCluster) {
+            matchedCluster.reports.push(report);
+            if (report.severity === 'high') matchedCluster.severity = 'high';
+            else if (report.severity === 'medium' && matchedCluster.severity !== 'high') matchedCluster.severity = 'medium';
+        } else {
+            clusters.push({
+                latitude: lat,
+                longitude: lng,
+                location: report.location,
+                type: report.type || report.disasterType || 'Hazard',
+                severity: report.severity || 'medium',
+                reports: [report]
+            });
+        }
+    }
+
+    // 3. Render consolidated cluster markers
+    clusters.forEach((cluster) => {
+        const isHigh = cluster.severity === 'high';
+        const isMedium = cluster.severity === 'medium';
+        const color = isHigh ? '#e63946' : isMedium ? '#f39c12' : '#2ecc71';
+        const markerSize = isHigh ? 16 : isMedium ? 13 : 10;
+        const count = cluster.reports.length;
+
+        const circle = L.circleMarker([cluster.latitude, cluster.longitude], {
+            color: '#ffffff',
             fillColor: color,
-            fillOpacity: 0.8,
+            fillOpacity: 0.9,
             radius: markerSize,
-            weight: 3
+            weight: 2
         }).addTo(map);
 
-        marker.bindPopup(`
-            <div>
-                <h4>${hazardBadgeLabel(report)}</h4>
-                <p><strong>Severity:</strong> ${report.severity.toUpperCase()}</p>
-                <p><strong>Location:</strong> ${report.location}</p>
-                <p><strong>Reporter:</strong> ${displayReporterName(report)}</p>
-                <p><strong>Time:</strong> ${report.timestamp.toLocaleString()}</p>
-                <p>${report.description}</p>
-                ${report.verified
-                    ? '<div style="color: green;">✓ Verified</div>'
-                    : '<div style="color: #d4a017;">⚠ Pending</div>'
-                }
+        const primaryReport = cluster.reports[0];
+        const countBadge = count > 1 ? `<span style="background:rgba(255,255,255,0.25); padding:2px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">${count} reports</span>` : '';
+
+        circle.bindPopup(`
+            <div style="font-family: inherit; line-height: 1.4; min-width: 220px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                    <span style="font-weight:700; color:${color}; text-transform:uppercase; font-size:0.85rem;">
+                        ${cluster.severity.toUpperCase()} RISK ${countBadge}
+                    </span>
+                    <span style="font-size:0.75rem; color:#888;">${primaryReport.timestamp ? primaryReport.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                </div>
+                <h4 style="margin: 0 0 6px 0; color:#1a1a1a;">${escapeHtml(hazardBadgeLabel(primaryReport))}</h4>
+                <p style="margin: 0 0 4px 0; font-size:0.85rem;"><strong>Location:</strong> ${escapeHtml(cluster.location || 'Active Hazard Area')}</p>
+                <p style="margin: 0 0 6px 0; font-size:0.85rem; color:#444;">${escapeHtml(primaryReport.description || 'Active incident in this region.')}</p>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-top:1px solid #eee; padding-top:6px; margin-top:6px;">
+                    <span style="color:#555;">Reporter: ${escapeHtml(displayReporterName(primaryReport))}</span>
+                    <span style="color:${primaryReport.verified ? '#27ae60' : '#f39c12'}; font-weight:600;">
+                        ${primaryReport.verified ? '✓ Verified' : '⚠ Active'}
+                    </span>
+                </div>
             </div>
         `);
 
-        mapMarkers.push(marker);
+        mapMarkers.push(circle);
     });
 
-    // Render verified social signals
-    if (typeof socialSignals !== 'undefined') {
+    // 4. Render verified social signals (if active and matches filter)
+    let socialCount = 0;
+    if (typeof socialSignals !== 'undefined' && (sevFilter === 'all' || sevFilter === 'medium' || sevFilter === 'high')) {
         socialSignals.filter(s => s.status === 'VERIFIED' && s.latitude && s.longitude).forEach(signal => {
             const marker = L.circleMarker([signal.latitude, signal.longitude], {
-                color: '#9b59b6', // Purple for social signals
+                color: '#9b59b6',
                 fillColor: '#8e44ad',
-                fillOpacity: 0.8,
-                radius: 12, // Distinct size
-                weight: 3,
-                dashArray: '5, 5' // Dashed border to distinguish
+                fillOpacity: 0.85,
+                radius: 12,
+                weight: 2
             }).addTo(map);
 
             marker.bindPopup(`
                 <div style="min-width: 200px;">
-                    <div style="background: #9b59b6; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 0.8rem; font-weight: bold; margin-bottom: 10px;">
+                    <div style="background: #9b59b6; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;">
                         <i class="fab fa-twitter"></i> SOCIAL SIGNAL
                     </div>
-                    <h4>Potential ${signal.hazard_type.charAt(0).toUpperCase() + signal.hazard_type.slice(1)}</h4>
-                    <p><strong>Confidence:</strong> ${signal.confidence_score}%</p>
-                    <p><strong>Location:</strong> ${signal.location}</p>
-                    <p><strong>Time:</strong> ${new Date(signal.timestamp).toLocaleString()}</p>
-                    <p style="font-style: italic;">"${signal.text}"</p>
-                    <div style="color: green; margin-top: 10px;">✓ Verified Incident</div>
+                    <h4 style="margin:0 0 4px 0;">Potential ${escapeHtml(signal.hazard_type || 'Incident')}</h4>
+                    <p style="margin:0 0 4px 0; font-size:0.85rem;"><strong>Confidence:</strong> ${signal.confidence_score}%</p>
+                    <p style="margin:0 0 4px 0; font-size:0.85rem;"><strong>Location:</strong> ${escapeHtml(signal.location)}</p>
+                    <p style="font-style: italic; font-size:0.85rem; margin:4px 0;">"${escapeHtml(signal.text)}"</p>
+                    <div style="color: #27ae60; font-size:0.8rem; margin-top: 6px;">✓ Verified Incident</div>
                 </div>
             `);
 
             mapMarkers.push(marker);
+            socialCount++;
         });
+    }
+
+    // Update map counter badge
+    const counterEl = document.getElementById('mapPointCounter');
+    if (counterEl) {
+        const totalPoints = clusters.length + socialCount;
+        counterEl.innerHTML = `<i class="fas fa-dot-circle"></i> Active Hazards: ${totalPoints}`;
     }
 }
 
@@ -2254,8 +2335,8 @@ window.chtlConfig = {
 // secure password hashing/session or token-based authentication, with server-side role authorization.
 
 const ROLE_PERMISSIONS = {
-    USER: ['map', 'report', 'sos', 'social', 'shelters', 'safety'],
-    ADMIN: ['map', 'sos', 'social', 'dashboard']
+    USER: ['map', 'report', 'sos', 'social', 'shelters', 'risk', 'safety'],
+    ADMIN: ['map', 'sos', 'social', 'risk', 'dashboard']
 };
 
 function requireRole(tabId) {
@@ -2371,4 +2452,485 @@ function updateNavigationForRole(role) {
             }
         }
     });
+}
+
+function escapeHtml(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function setRiskStatus(message, type = 'info') {
+    const statusEl = document.getElementById('riskStatus');
+    if (!statusEl) return;
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = message;
+    if (type === 'error') {
+        statusEl.style.color = '#e74c3c';
+        statusEl.style.borderColor = 'rgba(231, 76, 60, 0.5)';
+    } else if (type === 'success') {
+        statusEl.style.color = '#27ae60';
+        statusEl.style.borderColor = 'rgba(39, 174, 96, 0.5)';
+    } else {
+        statusEl.style.color = '#f4f4f4';
+        statusEl.style.borderColor = 'rgba(72, 202, 228, 0.35)';
+    }
+}
+
+function getRiskLocation() {
+    if (!navigator.geolocation) {
+        setRiskStatus('Geolocation is not supported by this browser.', 'error');
+        showNotification('Geolocation is not supported', 'error');
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        function (position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            document.getElementById('riskLatitude').value = lat.toFixed(6);
+            document.getElementById('riskLongitude').value = lng.toFixed(6);
+            setRiskStatus(
+                `📍 Location captured: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+                'info'
+            );
+            showNotification('Location captured for risk estimate');
+        },
+        function (error) {
+            setRiskStatus('Error getting location: ' + error.message, 'error');
+            showNotification('Error getting location: ' + error.message, 'error');
+        }
+    );
+}
+
+function formatRiskWindow(window) {
+    if (!window) return '—';
+    const start = window.start ? new Date(window.start) : null;
+    const end = window.end ? new Date(window.end) : null;
+    const range = start && end && !Number.isNaN(start.getTime())
+        ? `${start.toLocaleString()} → ${end.toLocaleString()}`
+        : window.label || '—';
+    return `${escapeHtml(window.label || '')}<div style="font-size:0.8rem;font-weight:500;color:#a9c6de;margin-top:4px;">${escapeHtml(range)}</div>`;
+}
+
+function coverageList(coverage) {
+    if (!coverage) return '';
+    const req = coverage.required || {};
+    return `
+        <div class="risk-meta-grid">
+            <div class="risk-meta-item">
+                <div class="risk-meta-label">Historical records</div>
+                <div class="risk-meta-value">${coverage.historicalEventCount} / ${req.minHistoricalEvents} min</div>
+            </div>
+            <div class="risk-meta-item">
+                <div class="risk-meta-label">Span (days)</div>
+                <div class="risk-meta-value">${coverage.spanDays} / ${req.minSpanDays} min</div>
+            </div>
+            <div class="risk-meta-item">
+                <div class="risk-meta-label">Distinct days</div>
+                <div class="risk-meta-value">${coverage.uniqueDays} / ${req.minUniqueDays} min</div>
+            </div>
+            <div class="risk-meta-item">
+                <div class="risk-meta-label">Current weather/alerts</div>
+                <div class="risk-meta-value">${coverage.environmentalSignalCount} / ${req.minEnvironmentalSignals} min</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderRiskComponentBars(components) {
+    if (!components) return '';
+    const rows = [];
+    if (components.historical) {
+        for (const [k, v] of Object.entries(components.historical)) {
+            rows.push({ group: 'Historical', name: k, value: Math.round(Number(v) * 100) });
+        }
+    }
+    if (components.environmental) {
+        for (const [k, v] of Object.entries(components.environmental)) {
+            rows.push({ group: 'Environmental', name: k, value: Math.round(Number(v) * 100) });
+        }
+    }
+    if (!rows.length) return '';
+    return `
+        <div style="margin-top:0.75rem;">
+            <h5 style="margin:0 0 0.5rem 0; color:#48cae4; font-size:0.82rem;">Component Indicator Signals</h5>
+            ${rows.map(r => `
+                <div style="margin-bottom:6px; font-size:0.78rem;">
+                    <div style="display:flex; justify-content:space-between; color:#a9c6de; margin-bottom:2px;">
+                        <span><strong style="color:#e8eef7;">${escapeHtml(r.group)}</strong> · ${escapeHtml(r.name)}</span>
+                        <span>${r.value}%</span>
+                    </div>
+                    <div style="height:5px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden;">
+                        <div style="width:${Math.min(100, Math.max(0, r.value))}%; height:100%; background:linear-gradient(90deg, #00b4d8, #e74c3c); border-radius:3px;"></div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderEnvSummary(stats) {
+    if (!stats) return '';
+    const items = [
+        stats.maxNearbyRainfallMm != null ? `Rain: ${stats.maxNearbyRainfallMm} mm` : null,
+        stats.maxForecastRainfallMm != null ? `Forecast rain: ${stats.maxForecastRainfallMm} mm` : null,
+        stats.maxNearbyWindKmh != null ? `Wind: ${stats.maxNearbyWindKmh} km/h` : null,
+        stats.maxNearbyHumidityPct != null ? `Humidity: ${stats.maxNearbyHumidityPct}%` : null,
+        stats.maxNearbyTemperatureC != null ? `Temp: ${stats.maxNearbyTemperatureC} °C` : null,
+        stats.maxSoilMoisturePct != null ? `Soil moisture: ${stats.maxSoilMoisturePct}%` : null,
+        stats.maxRiverLevel != null ? `River level: ${stats.maxRiverLevel}` : null
+    ].filter(Boolean);
+    if (!items.length) return '';
+    return `<div style="font-size:0.8rem; color:#8ecae6; margin-top:0.4rem;"><i class="fas fa-smog"></i> Observed inputs: ${items.map(escapeHtml).join(' · ')}</div>`;
+}
+
+function renderMethodNote(method, limitations) {
+    return `
+        <div class="risk-disclaimer-box">
+            <strong><i class="fas fa-shield-alt"></i> Model & Accuracy Status:</strong>
+            <div style="margin-top:4px;">
+                This future risk score is an indicator index combining historical records and current ingested weather/alert signals.
+                <strong>It is not a guaranteed disaster prediction</strong>.
+                ${method && method.evaluatedOnValidationDataset === false
+                    ? '<div style="margin-top:3px; font-style:italic;">Note: This method has NOT been evaluated on a held-out validation dataset. No predictive accuracy or hit-rate is claimed.</div>'
+                    : ''}
+            </div>
+        </div>
+    `;
+}
+
+function renderRiskEstimateCard(data) {
+    if (!data) return '';
+    const loc = data.location || {};
+    const win = data.timeWindow || {};
+    const risk = data.riskEstimate;
+    const gate = data.gate || {};
+    const conf = data.confidence || {};
+    const factors = data.contributingFactors || [];
+
+    if (!data.available || !risk) {
+        const missingList = (gate.missing || []).map((m) => `<li>${escapeHtml(m)}</li>`).join('');
+        return `
+            <div class="risk-card" style="border-color: rgba(243, 156, 18, 0.4);">
+                <div class="risk-card-header">
+                    <div>
+                        <div class="risk-title" style="color:#f39c12;"><i class="fas fa-exclamation-circle"></i> Risk Estimate Withheld</div>
+                        <div style="color:#a9c6de; font-size:0.88rem; margin-top:2px;">Location: <strong>${escapeHtml(loc.name || 'Selected area')}</strong> (${loc.latitude}, ${loc.longitude}) · Radius: ${loc.radiusKm || 80} km</div>
+                    </div>
+                    <span class="risk-band-pill moderate">Insufficient Data</span>
+                </div>
+                <p style="color:#f4f4f4; font-size:0.92rem; margin:0.5rem 0;">
+                    A future risk score is only computed when sufficient local historical records and current environmental observations exist.
+                </p>
+                <div style="background:rgba(0,0,0,0.3); border-radius:8px; padding:12px; margin:0.75rem 0;">
+                    <h5 style="margin:0 0 0.5rem 0; color:#f39c12; font-size:0.85rem;">Unmet Sufficiency Requirements</h5>
+                    <ul style="margin:0; padding-left:1.2rem; color:#e8eef7; font-size:0.86rem; line-height:1.5;">
+                        ${missingList || '<li>Data gate requirements were not satisfied.</li>'}
+                    </ul>
+                </div>
+                ${coverageList(data.dataCoverage)}
+                <div style="margin-top:1rem;">
+                    <h5 style="margin:0 0 0.4rem 0; color:#48cae4; font-size:0.85rem;">How to Enable an Estimate</h5>
+                    <p style="color:#bdc3c7; font-size:0.85rem; margin:0 0 0.5rem 0;">
+                        Use the <strong>Fetch Historical Data</strong> button above to pull real historical disaster records for this area from NASA EONET, or widen your search radius.
+                    </p>
+                </div>
+                ${renderMethodNote(data.method, data.limitations)}
+            </div>
+        `;
+    }
+
+    const bandKey = (risk.band || 'moderate').toLowerCase();
+    const factorsList = factors.map((f) => `<li>${escapeHtml(f.text || f)}</li>`).join('');
+
+    return `
+        <div class="risk-card">
+            <div class="risk-card-header">
+                <div>
+                    <div class="risk-title"><i class="fas fa-chart-line"></i> Future Risk Estimate</div>
+                    <div style="color:#a9c6de; font-size:0.88rem; margin-top:2px;">
+                        Location: <strong>${escapeHtml(loc.name)}</strong> (${loc.latitude}, ${loc.longitude}) · Radius: ${loc.radiusKm} km
+                    </div>
+                </div>
+                <span class="risk-band-pill ${bandKey}">${escapeHtml(risk.bandLabel || bandKey)}</span>
+            </div>
+
+            <div class="risk-score-hero">
+                <div class="risk-score-circle">
+                    <span class="risk-score-number">${risk.score}</span>
+                    <span class="risk-score-max">/ 100</span>
+                </div>
+                <div style="flex:1;">
+                    <h4 style="margin:0 0 4px 0; color:#f4f4f4;">Primary Hazard Indicator: <span style="color:#00b4d8; text-transform:uppercase;">${escapeHtml(risk.primaryHazardType || 'Hazard')}</span></h4>
+                    <p style="margin:0; color:#bdc3c7; font-size:0.88rem; line-height:1.4;">
+                        Combined indicator index (40% historical disaster pattern + 60% active environmental/weather variables).
+                    </p>
+                    ${renderEnvSummary(risk.stats)}
+                </div>
+            </div>
+
+            <div class="risk-breakdown-grid">
+                <div class="risk-breakdown-box">
+                    <div class="risk-breakdown-title">Historical Sub-score</div>
+                    <div class="risk-breakdown-val">${risk.historicalScore} <span style="font-size:0.75rem; color:#a9c6de;">/ 100</span></div>
+                    <div style="font-size:0.75rem; color:#8aa2bb;">From ${risk.stats?.eventCount || 0} local disaster records</div>
+                </div>
+                <div class="risk-breakdown-box">
+                    <div class="risk-breakdown-title">Environmental Sub-score</div>
+                    <div class="risk-breakdown-val">${risk.environmentalScore} <span style="font-size:0.75rem; color:#a9c6de;">/ 100</span></div>
+                    <div style="font-size:0.75rem; color:#8aa2bb;">From current weather & warnings</div>
+                </div>
+                <div class="risk-breakdown-box">
+                    <div class="risk-breakdown-title">Planning Time Window</div>
+                    <div class="risk-breakdown-val" style="font-size:1rem; color:#e8eef7;">${formatRiskWindow(win)}</div>
+                </div>
+                <div class="risk-breakdown-box">
+                    <div class="risk-breakdown-title">Confidence / Uncertainty</div>
+                    <div class="risk-breakdown-val" style="font-size:1.1rem; color:#48cae4;">
+                        ${Math.round((conf.score || 0) * 100)}%
+                        <span style="font-size:0.75rem; color:#a9c6de;">(${escapeHtml(conf.label || '')} uncertainty)</span>
+                    </div>
+                    <div style="font-size:0.72rem; color:#8aa2bb; margin-top:2px;">Reflects data coverage & agreement</div>
+                </div>
+            </div>
+
+            ${renderRiskComponentBars(risk.components)}
+
+            <div style="margin-top:1rem;">
+                <h5 style="margin:0 0 0.5rem 0; color:#48cae4; font-size:0.85rem;"><i class="fas fa-list-check"></i> Main Contributing Factors</h5>
+                <ul class="risk-factors-list">
+                    ${factorsList || '<li>No specific factors reported.</li>'}
+                </ul>
+            </div>
+
+            <div style="margin-top:1rem;">
+                <h5 style="margin:0 0 0.3rem 0; color:#a9c6de; font-size:0.8rem;">Data Coverage</h5>
+                ${coverageList(data.dataCoverage)}
+            </div>
+
+            ${renderMethodNote(data.method, data.limitations)}
+        </div>
+    `;
+}
+
+async function estimateLocationRisk() {
+    const lat = document.getElementById('riskLatitude').value.trim();
+    const lng = document.getElementById('riskLongitude').value.trim();
+    const radius = document.getElementById('riskRadius').value.trim() || 80;
+    const horizon = document.getElementById('riskHorizon').value.trim() || 48;
+    const name = document.getElementById('riskLocationName').value.trim();
+
+    if (!lat || !lng) {
+        setRiskStatus('Please enter latitude and longitude, or use "Use My Current Location".', 'error');
+        return;
+    }
+
+    setRiskStatus('<i class="fas fa-spinner fa-spin"></i> Checking historical records and current environmental signals...', 'info');
+    const resultArea = document.getElementById('riskResultArea');
+    resultArea.style.display = 'none';
+
+    try {
+        const response = await fetch(`${API_BASE}/api/risk/estimate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                latitude: Number(lat),
+                longitude: Number(lng),
+                radiusKm: Number(radius),
+                horizonHours: Number(horizon),
+                locationName: name
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            setRiskStatus(`Failed to compute risk estimate: ${data.error || 'Server error'}`, 'error');
+            return;
+        }
+
+        setRiskStatus('Risk assessment completed.', 'success');
+        resultArea.innerHTML = renderRiskEstimateCard(data);
+        resultArea.style.display = 'block';
+    } catch (error) {
+        console.error('estimateLocationRisk error:', error);
+        setRiskStatus(`Network error: ${error.message}`, 'error');
+    }
+}
+
+async function scanRiskAreas() {
+    const radius = document.getElementById('riskRadius').value.trim() || 80;
+    const horizon = document.getElementById('riskHorizon').value.trim() || 48;
+    const scanArea = document.getElementById('riskScanArea');
+    scanArea.style.display = 'block';
+    scanArea.innerHTML = '<div style="padding:1rem; text-align:center; color:#a9c6de;"><i class="fas fa-spinner fa-spin"></i> Scanning regional clusters for sufficient historical + environmental data...</div>';
+
+    try {
+        const response = await fetch(`${API_BASE}/api/risk/scan?radiusKm=${encodeURIComponent(radius)}&horizonHours=${encodeURIComponent(horizon)}`);
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            scanArea.innerHTML = `<div style="color:#e74c3c; padding:1rem;">Failed to scan: ${escapeHtml(data.error || 'Error')}</div>`;
+            return;
+        }
+
+        const estimates = data.estimates || [];
+        if (!estimates.length) {
+            scanArea.innerHTML = `
+                <div class="risk-card" style="border-color:rgba(243, 156, 18, 0.4);">
+                    <h4 style="margin:0 0 0.5rem 0; color:#f39c12;"><i class="fas fa-info-circle"></i> No Areas Meet Data Sufficiency Requirements</h4>
+                    <p style="color:#e8eef7; font-size:0.9rem; margin:0;">
+                        Across all scanned clusters, none currently meet the minimum threshold of ${data.thresholds?.minHistoricalEvents || 8} historical disaster events and active environmental signals.
+                    </p>
+                    <div style="margin-top:0.75rem;">
+                        Use <strong>Fetch Historical Data</strong> for any coordinate to import real NASA EONET disaster history.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        scanArea.innerHTML = `
+            <div style="margin-bottom:1rem;">
+                <h3 style="color:#48cae4; margin:0 0 0.5rem 0;"><i class="fas fa-map-marked-alt"></i> Qualifying Risk Areas (${estimates.length})</h3>
+                <p style="color:#a9c6de; font-size:0.88rem; margin:0;">Only areas with enough real historical data and current signals are displayed.</p>
+            </div>
+            ${estimates.map(renderRiskEstimateCard).join('')}
+        `;
+    } catch (error) {
+        console.error('scanRiskAreas error:', error);
+        scanArea.innerHTML = `<div style="color:#e74c3c; padding:1rem;">Error scanning areas: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+async function fetchHistoricalAndRisk() {
+    const lat = document.getElementById('riskLatitude').value.trim();
+    const lng = document.getElementById('riskLongitude').value.trim();
+    const radius = document.getElementById('riskRadius').value.trim() || 80;
+    const name = document.getElementById('riskLocationName').value.trim();
+    const startDate = document.getElementById('riskStartDate').value;
+    const endDate = document.getElementById('riskEndDate').value;
+    const btn = document.getElementById('fetchHistoricalBtn');
+
+    if (!lat || !lng) {
+        setRiskStatus('Please enter latitude and longitude before fetching historical data.', 'error');
+        return;
+    }
+
+    if (btn) btn.disabled = true;
+    setRiskStatus('<i class="fas fa-spinner fa-spin"></i> Fetching real historical disaster records from NRSC/ISRO & public disaster catalogs...', 'info');
+    const resultArea = document.getElementById('riskResultArea');
+    resultArea.style.display = 'none';
+
+    try {
+        const response = await fetch(`${API_BASE}/api/historical-data/fetch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                latitude: Number(lat),
+                longitude: Number(lng),
+                radius_km: Number(radius),
+                start_date: startDate || undefined,
+                end_date: endDate || undefined,
+                location_name: name
+            })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success) {
+            const errDetail = data.error || (response.status === 404 ? 'API endpoint not found on backend server' : `HTTP error ${response.status}`);
+            setRiskStatus(`Historical fetch failed: ${escapeHtml(errDetail)}`, 'error');
+            return;
+        }
+
+        const summary = data.data_summary || {};
+        const risk = data.risk_estimate?.riskEstimate || {};
+        const coverage = data.risk_estimate?.dataCoverage || {};
+
+        const histRecords = summary.historicalEventCount ?? coverage.historicalEventCount ?? data.records_saved;
+        const spanDays = summary.spanDays ?? coverage.spanDays ?? 0;
+        const uniqueDays = summary.uniqueDays ?? coverage.uniqueDays ?? 0;
+        const histScore = summary.historicalScore != null ? summary.historicalScore : (risk.historicalScore != null ? risk.historicalScore : '—');
+        const envScore = summary.environmentalScore != null ? summary.environmentalScore : (risk.environmentalScore != null ? risk.environmentalScore : '—');
+        const finalScore = summary.finalScore != null ? summary.finalScore : (risk.score != null ? risk.score : '—');
+
+        setRiskStatus(`
+            <div style="font-weight:700; margin-bottom:4px; color:#2ecc71;">
+                <i class="fas fa-check-circle"></i> ${escapeHtml(data.message || 'Historical data synchronized successfully')}
+            </div>
+            <div style="font-size:0.85rem; color:#a9c6de; margin-bottom:8px;">
+                Source: <strong>${escapeHtml(data.source || 'NRSC/ISRO')}</strong> · Records fetched: ${data.records_fetched} · Saved: ${data.records_saved} · Skipped (duplicates): ${data.records_skipped}
+            </div>
+            <div class="risk-meta-grid" style="margin-top:6px; font-size:0.85rem;">
+                <div class="risk-meta-item">
+                    <div class="risk-meta-label">Historical records</div>
+                    <div class="risk-meta-value">${histRecords}</div>
+                </div>
+                <div class="risk-meta-item">
+                    <div class="risk-meta-label">Historical span</div>
+                    <div class="risk-meta-value">${spanDays} days</div>
+                </div>
+                <div class="risk-meta-item">
+                    <div class="risk-meta-label">Distinct days</div>
+                    <div class="risk-meta-value">${uniqueDays}</div>
+                </div>
+                <div class="risk-meta-item">
+                    <div class="risk-meta-label">Historical Risk Score</div>
+                    <div class="risk-meta-value" style="color:#48cae4;">${histScore}/100</div>
+                </div>
+                <div class="risk-meta-item">
+                    <div class="risk-meta-label">Environmental Risk Score</div>
+                    <div class="risk-meta-value" style="color:#48cae4;">${envScore}/100</div>
+                </div>
+                <div class="risk-meta-item">
+                    <div class="risk-meta-label">Final Risk Score</div>
+                    <div class="risk-meta-value" style="color:#ff6b6b; font-weight:700;">${finalScore}/100</div>
+                </div>
+            </div>
+        `, 'success');
+
+        showNotification(`Historical Data: ${data.records_saved} new events added to database`);
+        loadHistoricalSyncStatus();
+
+        if (data.risk_estimate) {
+            resultArea.innerHTML = renderRiskEstimateCard(data.risk_estimate);
+            resultArea.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('fetchHistoricalAndRisk error:', error);
+        setRiskStatus(`Historical fetch failed: ${escapeHtml(error.message || 'Network error')}`, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function loadHistoricalSyncStatus() {
+    const el = document.getElementById('lastHistoricalSync');
+    if (!el) return;
+    try {
+        const response = await fetch(`${API_BASE}/api/historical-data/status`);
+        const data = await response.json();
+        if (!response.ok || !data.success) return;
+        const last = data.last_sync;
+        if (last && (last.last_sync_at || last.last_success_at)) {
+            const time = new Date(last.last_success_at || last.last_sync_at).toLocaleString();
+            const details = last.details || {};
+            el.style.display = 'block';
+            el.innerHTML = `<i class="fas fa-info-circle"></i> Last Historical sync (${escapeHtml(last.source || 'NRSC/ISRO')}): <strong>${escapeHtml(time)}</strong> (${details.saved || 0} saved in last request).`;
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function initializeHistoricalDateDefaults() {
+    const startEl = document.getElementById('riskStartDate');
+    const endEl = document.getElementById('riskEndDate');
+    if (!startEl || !endEl) return;
+    if (!startEl.value || !endEl.value) {
+        const today = new Date();
+        const yearAgo = new Date(today.getTime() - 365 * 86400000);
+        endEl.value = today.toISOString().slice(0, 10);
+        startEl.value = yearAgo.toISOString().slice(0, 10);
+    }
 }

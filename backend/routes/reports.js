@@ -21,12 +21,29 @@ function getUploadRoot() {
 router.get('/', (req, res) => {
   try {
     const db = getDb();
-    const rows = db.prepare(`
+    const includeHistorical = req.query.include_historical === 'true' || req.query.all === 'true';
+    const status = req.query.status;
+
+    let query = `
       SELECT r.*, u.username, u.display_name, u.trust_score
       FROM disaster_reports r
       JOIN users u ON u.id = r.user_id
-      ORDER BY datetime(r.created_at) DESC
-    `).all();
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (!includeHistorical) {
+      query += ` AND COALESCE(r.source_type, '') NOT IN ('HISTORICAL_EONET', 'HISTORICAL_NRSC') AND COALESCE(r.incident_status, 'active') != 'archived'`;
+    }
+
+    if (status) {
+      query += ` AND r.incident_status = ?`;
+      params.push(status);
+    }
+
+    query += ` ORDER BY datetime(r.created_at) DESC`;
+
+    const rows = db.prepare(query).all(...params);
 
     res.json({ success: true, reports: rows.map(mapReportRow) });
   } catch (error) {

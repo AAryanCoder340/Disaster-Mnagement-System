@@ -12,6 +12,8 @@ router.get('/', (req, res) => {
       SELECT r.*, u.username, u.display_name, u.trust_score
       FROM disaster_reports r
       JOIN users u ON u.id = r.user_id
+      WHERE COALESCE(r.source_type, '') NOT IN ('HISTORICAL_EONET', 'HISTORICAL_NRSC')
+        AND COALESCE(r.incident_status, 'active') != 'archived'
       ORDER BY datetime(r.created_at) DESC
     `).all().map(mapReportRow);
 
