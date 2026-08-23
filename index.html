@@ -11,7 +11,24 @@
 </head>
 
 <body>
-    <div class="app-container">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <div class="login-logo">
+                <i class="fas fa-water"></i>
+                <span>COASTWATCH</span>
+            </div>
+            <h2>Secure Access Portal</h2>
+            <p>Enter your authorized CoastWatch access code.</p>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <input type="password" id="accessCode" placeholder="Enter Access Code" onkeypress="handleLoginKeyPress(event)" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 1rem; text-align: center;">
+            </div>
+            <div id="loginError" style="display: none; color: #f07167; margin-bottom: 1rem; font-size: 0.9rem;">Invalid access code. Please check your credentials and try again.</div>
+            <button class="btn btn-primary" onclick="handleLogin()" style="width: 100%; background: #00b4d8; padding: 12px; font-size: 1.1rem;">Login</button>
+        </div>
+    </div>
+
+    <div class="app-container" id="appContainer" style="display: none;">
         <!-- Header -->
         <header class="header">
             <div class="logo" onclick="toggleLogoMenu()">
@@ -47,10 +64,11 @@
                 </div>
             </div>
             <div class="user-info">
-                <span>Welcome, User</span>
+                <span id="welcomeText">Welcome, User</span>
                 <div class="trust-score">
                     <i class="fas fa-star"></i> Trust Score: 85
                 </div>
+                <button class="btn" onclick="handleLogout()" style="background: rgba(240, 113, 103, 0.2); color: #f07167; padding: 8px 15px; border: 1px solid rgba(240, 113, 103, 0.5);"><i class="fas fa-sign-out-alt"></i> Logout</button>
             </div>
         </header>
 

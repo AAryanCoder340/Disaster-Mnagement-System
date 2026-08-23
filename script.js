@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
     populateSocialFeed();
     setupFormHandlers();
     loadAppData();
+    checkAuth();
 
     document.addEventListener('click', function (event) {
         const logoMenu = document.getElementById('logoMenu');
@@ -367,6 +368,11 @@ function showSafetyTips() {
 }
 
 function showTab(tabName) {
+    if (!requireRole(tabName)) {
+        showNotification('Access Denied. You do not have permission to view this section.', 'error');
+        return;
+    }
+
     document.querySelectorAll('.content').forEach(content => {
         content.classList.remove('active');
     });
@@ -2144,3 +2150,128 @@ function promptSosNotes(sosId) {
 window.chtlConfig = {
     chatbotId: "3597779591"
 };
+
+// --- DEMO AUTHENTICATION SYSTEM ---
+// The current access-code authentication is a demonstration mechanism. 
+// In production, authentication should be performed by the backend using 
+// secure password hashing/session or token-based authentication, with server-side role authorization.
+
+const ROLE_PERMISSIONS = {
+    USER: ['map', 'report', 'sos', 'social', 'shelters', 'safety'],
+    ADMIN: ['map', 'sos', 'social', 'dashboard']
+};
+
+function requireRole(tabId) {
+    const role = localStorage.getItem('coastwatchRole');
+    if (!role) return false;
+    const permissions = ROLE_PERMISSIONS[role] || [];
+    return permissions.includes(tabId);
+}
+
+function checkAuth() {
+    const isAuth = localStorage.getItem('coastwatchAuthenticated');
+    const role = localStorage.getItem('coastwatchRole');
+    
+    if (isAuth === 'true' && role) {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'block';
+        
+        // Update welcome text
+        const welcomeText = document.getElementById('welcomeText');
+        if (welcomeText) {
+            welcomeText.textContent = `Welcome, ${role === 'ADMIN' ? 'Administrator' : 'User'}`;
+        }
+        
+        updateNavigationForRole(role);
+        
+        // Show default tab for role if current is hidden
+        const activeContent = document.querySelector('.content.active');
+        if (!activeContent || activeContent.style.display === 'none' || !requireRole(activeContent.id)) {
+            if (role === 'ADMIN') {
+                showTab('dashboard');
+            } else {
+                showTab('map');
+            }
+        }
+    } else {
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('appContainer').style.display = 'none';
+    }
+}
+
+function handleLogin() {
+    const code = document.getElementById('accessCode').value.trim();
+    const errorEl = document.getElementById('loginError');
+    
+    if (code === 'COAST-USER-2026') {
+        localStorage.setItem('coastwatchAuthenticated', 'true');
+        localStorage.setItem('coastwatchRole', 'USER');
+        errorEl.style.display = 'none';
+        checkAuth();
+    } else if (code === 'COAST-ADMIN-2026') {
+        localStorage.setItem('coastwatchAuthenticated', 'true');
+        localStorage.setItem('coastwatchRole', 'ADMIN');
+        errorEl.style.display = 'none';
+        checkAuth();
+    } else {
+        errorEl.style.display = 'block';
+    }
+}
+
+function handleLoginKeyPress(e) {
+    if (e.key === 'Enter') {
+        handleLogin();
+    }
+}
+
+function handleLogout() {
+    localStorage.removeItem('coastwatchAuthenticated');
+    localStorage.removeItem('coastwatchRole');
+    document.getElementById('accessCode').value = '';
+    
+    // Hide active tabs
+    document.querySelectorAll('.content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    checkAuth();
+}
+
+function updateNavigationForRole(role) {
+    const permissions = ROLE_PERMISSIONS[role] || [];
+    const tabs = document.querySelectorAll('.nav-tabs .tab');
+    
+    tabs.forEach(tab => {
+        const onclickAttr = tab.getAttribute('onclick');
+        if (onclickAttr) {
+            const match = onclickAttr.match(/showTab\('([^']+)'\)/);
+            if (match && match[1]) {
+                const tabId = match[1];
+                if (permissions.includes(tabId)) {
+                    tab.style.display = 'flex';
+                } else {
+                    tab.style.display = 'none';
+                }
+            }
+        }
+    });
+    
+    const menuItems = document.querySelectorAll('.logo-menu-item');
+    menuItems.forEach(item => {
+        const onclickAttr = item.getAttribute('onclick');
+        if (onclickAttr) {
+            const match = onclickAttr.match(/showTab\('([^']+)'\)/);
+            if (match && match[1]) {
+                const tabId = match[1];
+                if (!permissions.includes(tabId)) {
+                    item.style.display = 'none';
+                } else {
+                    item.style.display = 'flex';
+                }
+            }
+        }
+    });
+}
