@@ -297,4 +297,62 @@ router.get('/stats/summary', (req, res) => {
   }
 });
 
+router.delete('/purge/resolved', (req, res) => {
+  try {
+    const db = getDb();
+    const info = db.prepare("DELETE FROM sos_incidents WHERE status = 'RESOLVED'").run();
+
+    broadcast('sos:purge', {
+      type: 'sos_purge',
+      purgedStatus: 'RESOLVED',
+      count: info.changes,
+      serverTime: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      purgedCount: info.changes,
+      message: `Successfully purged ${info.changes} resolved SOS record(s)`
+    });
+  } catch (error) {
+    console.error('DELETE /api/sos/purge/resolved error:', error);
+    res.status(500).json({ success: false, error: 'Failed to purge resolved SOS records' });
+  }
+});
+
+router.delete('/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+
+    let row = db.prepare('SELECT * FROM sos_incidents WHERE id = ?').get(id);
+    if (!row) {
+      row = db.prepare('SELECT * FROM sos_incidents WHERE sos_short_id = ?').get(id);
+    }
+
+    if (!row) {
+      return res.status(404).json({ success: false, error: 'SOS incident not found' });
+    }
+
+    db.prepare('DELETE FROM sos_incidents WHERE id = ?').run(row.id);
+
+    broadcast('sos:delete', {
+      type: 'sos_delete',
+      id: row.id,
+      sosShortId: row.sos_short_id,
+      serverTime: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      deletedId: row.id,
+      message: 'SOS incident permanently deleted'
+    });
+  } catch (error) {
+    console.error('DELETE /api/sos/:id error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete SOS incident' });
+  }
+});
+
 module.exports = router;
+
