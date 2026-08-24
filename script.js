@@ -2560,6 +2560,33 @@ function handleLogin() {
     }
 }
 
+function togglePasswordVisibility(inputId = 'accessCode', buttonId = 'togglePasswordBtn') {
+    const passwordInput = document.getElementById(inputId);
+    const toggleButton = document.getElementById(buttonId);
+    if (!passwordInput || !toggleButton) return;
+    
+    const icon = toggleButton.querySelector('i');
+    const isPassword = passwordInput.type === 'password';
+    
+    if (isPassword) {
+        passwordInput.type = 'text';
+        toggleButton.setAttribute('aria-label', 'Hide password');
+        toggleButton.setAttribute('title', 'Hide password');
+        if (icon) {
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        }
+    } else {
+        passwordInput.type = 'password';
+        toggleButton.setAttribute('aria-label', 'Show password');
+        toggleButton.setAttribute('title', 'Show password');
+        if (icon) {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+}
+
 function handleLoginKeyPress(e) {
     if (e.key === 'Enter') {
         handleLogin();
@@ -2569,7 +2596,22 @@ function handleLoginKeyPress(e) {
 function handleLogout() {
     localStorage.removeItem('coastwatchAuthenticated');
     localStorage.removeItem('coastwatchRole');
-    document.getElementById('accessCode').value = '';
+    
+    const accessCodeInput = document.getElementById('accessCode');
+    const toggleBtn = document.getElementById('togglePasswordBtn');
+    if (accessCodeInput) {
+        accessCodeInput.value = '';
+        accessCodeInput.type = 'password';
+    }
+    if (toggleBtn) {
+        toggleBtn.setAttribute('aria-label', 'Show password');
+        toggleBtn.setAttribute('title', 'Show password');
+        const icon = toggleBtn.querySelector('i');
+        if (icon) {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
     
     // Hide active tabs
     document.querySelectorAll('.content').forEach(content => {
