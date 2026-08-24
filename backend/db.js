@@ -419,29 +419,34 @@ function seedDefaultUser() {
 }
 
 function seedSampleDataIfEmpty() {
-  const count = db.prepare('SELECT COUNT(*) AS total FROM disaster_reports').get().total;
+  const count = db.prepare("SELECT COUNT(*) AS total FROM disaster_reports WHERE COALESCE(source_type, '') NOT IN ('HISTORICAL_EONET', 'HISTORICAL_NRSC') AND source_type != 'CITIZEN_REPORT'").get().total;
   if (count > 0) return;
 
   const authorityUsers = [
     { id: uuidv4(), username: 'TamilNaduDM', display_name: 'Tamil Nadu DM', trust_score: 95 },
     { id: uuidv4(), username: 'MumbaiMC', display_name: 'Mumbai Municipal Corp', trust_score: 92 },
-    { id: uuidv4(), username: 'ODMCyclone', display_name: 'Odisha Disaster Mgmt', trust_score: 97 }
+    { id: uuidv4(), username: 'ODMCyclone', display_name: 'Odisha Disaster Mgmt', trust_score: 97 },
+    { id: uuidv4(), username: 'APStateDM', display_name: 'AP State Disaster Authority', trust_score: 94 },
+    { id: uuidv4(), username: 'KeralaSDMA', display_name: 'Kerala SDMA', trust_score: 96 }
   ];
 
   const insertUser = db.prepare(`
     INSERT INTO users (id, username, display_name, trust_score, is_active)
     VALUES (?, ?, ?, ?, 1)
+    ON CONFLICT(username) DO UPDATE SET display_name = excluded.display_name
   `);
   for (const user of authorityUsers) {
     insertUser.run(user.id, user.username, user.display_name, user.trust_score);
+    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(user.username);
+    if (existing) user.id = existing.id;
   }
 
   const samples = [
     {
       user_id: authorityUsers[0].id,
       disaster_type: 'tsunami',
-      location: 'Tamil Nadu',
-      description: 'Tsunami warning issued for coastal areas of Tamil Nadu',
+      location: 'Tamil Nadu Coast',
+      description: 'Tsunami high swell alert issued for coastal Tamil Nadu districts',
       severity: 'high',
       latitude: 11.1271,
       longitude: 78.6569,
@@ -451,7 +456,7 @@ function seedSampleDataIfEmpty() {
       user_id: authorityUsers[1].id,
       disaster_type: 'flood',
       location: 'Mumbai, Maharashtra',
-      description: 'Monsoon flooding in low-lying areas of Mumbai',
+      description: 'Monsoon coastal flooding reported in low-lying areas of Mumbai',
       severity: 'medium',
       latitude: 19.076,
       longitude: 72.8777,
@@ -461,11 +466,31 @@ function seedSampleDataIfEmpty() {
       user_id: authorityUsers[2].id,
       disaster_type: 'cyclone',
       location: 'Odisha Coast',
-      description: 'Tropical cyclone approaching Odisha coastline',
+      description: 'Tropical cyclone approaching Odisha coastline with gale winds',
       severity: 'high',
       latitude: 20.9517,
       longitude: 85.0985,
       hours_ago: 1.5
+    },
+    {
+      user_id: authorityUsers[3].id,
+      disaster_type: 'flood',
+      location: 'Visakhapatnam, Andhra Pradesh',
+      description: 'Storm surge and tidal wave intrusion near coastal road',
+      severity: 'medium',
+      latitude: 17.6868,
+      longitude: 83.2185,
+      hours_ago: 2
+    },
+    {
+      user_id: authorityUsers[4].id,
+      disaster_type: 'flood',
+      location: 'Kochi, Kerala',
+      description: 'High tide alert and coastal seawater inundation warning',
+      severity: 'low',
+      latitude: 9.9312,
+      longitude: 76.2673,
+      hours_ago: 2.5
     }
   ];
 
@@ -474,7 +499,7 @@ function seedSampleDataIfEmpty() {
       id, user_id, disaster_type, location, description, severity,
       latitude, longitude, verification_status, incident_status,
       source, source_type, is_seed, corroboration_status, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'verified', 'active', 'DEMO_SEED', 'DEMO_SEED', 1, 'DEMO_SEED', datetime('now', ?), datetime('now', ?))
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'verified', 'active', 'OFFICIAL', 'OFFICIAL_REPORT', 0, 'OFFICIAL_CORROBORATED', datetime('now', ?), datetime('now', ?))
   `);
 
   for (const sample of samples) {

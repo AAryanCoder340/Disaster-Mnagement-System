@@ -7,28 +7,31 @@ router.get('/stats', (req, res) => {
   try {
     const db = getDb();
 
+    // Only count active operational reports (exclude bulk historical archive datasets)
+    const activeReportCondition = `COALESCE(source_type, '') NOT IN ('HISTORICAL_EONET', 'HISTORICAL_NRSC') AND COALESCE(incident_status, 'active') != 'archived'`;
+
     const totalReports = db.prepare(`
-      SELECT COUNT(*) AS total FROM disaster_reports WHERE is_seed = 0
+      SELECT COUNT(*) AS total FROM disaster_reports WHERE ${activeReportCondition}
     `).get().total;
 
     const citizenReports = db.prepare(`
       SELECT COUNT(*) AS total FROM disaster_reports
-      WHERE source_type = 'CITIZEN_REPORT' AND is_seed = 0
+      WHERE source_type = 'CITIZEN_REPORT' AND ${activeReportCondition}
     `).get().total;
 
     const highPriorityReports = db.prepare(`
       SELECT COUNT(*) AS total FROM disaster_reports
-      WHERE severity = 'high' AND is_seed = 0
+      WHERE severity = 'high' AND ${activeReportCondition}
     `).get().total;
 
     const verifiedReports = db.prepare(`
       SELECT COUNT(*) AS total FROM disaster_reports
-      WHERE verification_status = 'verified' AND is_seed = 0
+      WHERE verification_status = 'verified' AND ${activeReportCondition}
     `).get().total;
 
     const reportsLast24h = db.prepare(`
       SELECT COUNT(*) AS total FROM disaster_reports
-      WHERE is_seed = 0 AND datetime(created_at) >= datetime('now', '-24 hours')
+      WHERE ${activeReportCondition} AND datetime(created_at) >= datetime('now', '-24 hours')
     `).get().total;
 
     const activeUsers = db.prepare(`
