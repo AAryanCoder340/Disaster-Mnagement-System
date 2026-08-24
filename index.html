@@ -126,6 +126,7 @@
                     </select>
                 </div>
             </div>
+            <h2><i class="fas fa-map-marked-alt"></i> India Hazard Map</h2>
             <div class="map-container" id="mapContainer"></div>
             <div class="reports-grid" id="recentReports">
                 <!-- Recent reports will be populated here -->
@@ -499,6 +500,28 @@
                     <button class="btn" onclick="loadAuthoritySosList()" style="margin:0; background:#48cae4;">
                         <i class="fas fa-sync-alt"></i> Refresh SOS List
                     </button>
+                    <div>
+                        <h3 style="margin:0;"><i class="fas fa-ambulance"></i> SOS Emergencies Queue</h3>
+                        <div style="font-size:0.8rem; color:#a9c6de; margin-top:3px;">
+                            <i class="fas fa-magic" style="color:#48cae4;"></i> Resolved emergencies automatically auto-delete from the active dashboard.
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                        <div class="sos-filter-group" id="sosFilterGroup">
+                            <button type="button" class="sos-filter-btn active" id="sosFilterActive" onclick="setSosFilter('active')">
+                                <i class="fas fa-exclamation-circle"></i> Active <span class="sos-badge-pill" id="sosBadgeActive">0</span>
+                            </button>
+                            <button type="button" class="sos-filter-btn" id="sosFilterResolved" onclick="setSosFilter('resolved')">
+                                <i class="fas fa-check-double"></i> Resolved <span class="sos-badge-pill" id="sosBadgeResolved">0</span>
+                            </button>
+                            <button type="button" class="sos-filter-btn" id="sosFilterAll" onclick="setSosFilter('all')">
+                                <i class="fas fa-list"></i> All <span class="sos-badge-pill" id="sosBadgeAll">0</span>
+                            </button>
+                        </div>
+                        <button class="btn" onclick="loadAuthoritySosList()" style="margin:0; background:#48cae4; padding: 7px 14px; font-size: 0.85rem;">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
                 </div>
                 <div id="authoritySosSummary" style="margin-bottom: 1rem; display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:0.75rem;">
                 </div>

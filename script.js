@@ -8,6 +8,8 @@ let currentUserId = null;
 let sosActive = false;
 let currentSosIncident = null;
 let sosPollIntervalId = null;
+let currentSosFilter = 'active';
+let dashboardSosPollIntervalId = null;
 const SOS_STATUS_ORDER = ['PENDING', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESCUE_ASSIGNED', 'RESOLVED'];
 
 const SOS_STATUS_LABEL = {
@@ -130,11 +132,11 @@ async function loadReports() {
     }
 }
 
-async function loadDashboardStats() {
+async function loadDashboardStats(silent = false) {
     const statusEl = document.getElementById('dashboardStatus');
-    setDashboardNumbersLoading();
+    if (!silent) setDashboardNumbersLoading();
 
-    if (statusEl) {
+    if (statusEl && !silent) {
         statusEl.style.display = 'block';
         statusEl.textContent = 'Loading dashboard stats...';
         statusEl.style.color = '#f4f4f4';
@@ -378,11 +380,13 @@ function showTab(tabName) {
     if (tabName === 'dashboard') {
         loadDashboardStats();
         loadAuthoritySosList();
-    }
-
-    if (tabName === 'risk') {
-        initializeHistoricalDateDefaults();
-        loadHistoricalSyncStatus();
+        stopDashboardSosPolling();
+        dashboardSosPollIntervalId = setInterval(() => {
+            loadAuthoritySosList(true);
+            loadDashboardStats(true);
+        }, 5000);
+    } else {
+        stopDashboardSosPolling();
     }
 }
 
@@ -2116,12 +2120,32 @@ async function findShelters() {
     }
 }
 
+function setSosFilter(filter) {
+    currentSosFilter = filter;
+    ['active', 'resolved', 'all'].forEach(f => {
+        const btn = document.getElementById(`sosFilter${f.charAt(0).toUpperCase() + f.slice(1)}`);
+        if (btn) {
+            if (f === filter) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+    loadAuthoritySosList(false);
+}
+
+function stopDashboardSosPolling() {
+    if (dashboardSosPollIntervalId) {
+        clearInterval(dashboardSosPollIntervalId);
+        dashboardSosPollIntervalId = null;
+    }
+}
+
 function renderAuthoritySosCard(incident) {
     const currentIdx = SOS_STATUS_ORDER.indexOf(incident.status);
     const status = incident.status;
     const nextStatus = SOS_STATUS_ORDER[currentIdx + 1] || null;
-    const canAdvance = nextStatus !== null && status !== 'RESOLVED';
-    const canResolve = status !== 'RESOLVED';
+    const isResolved = status === 'RESOLVED';
+    const canAdvance = nextStatus !== null && !isResolved;
+    const canResolve = !isResolved;
 
     const statusClass = (status || '').toLowerCase().replace(/_/g, '-');
 
@@ -2165,6 +2189,9 @@ function renderAuthoritySosCard(incident) {
                     ${incident.updatedAt && incident.updatedAt !== incident.createdAt
                         ? `<div style="margin-top:3px;opacity:0.75;font-size:0.7rem;">Updated ${parseServerDate(incident.updatedAt).toLocaleString()}</div>`
                         : ''}
+                    ${incident.resolvedAt
+                        ? `<div style="margin-top:3px;color:#48cae4;font-size:0.7rem;"><i class="fas fa-check-double"></i> Resolved ${parseServerDate(incident.resolvedAt).toLocaleString()}</div>`
+                        : ''}
                 </div>
             </div>
             <div class="sos-card-meta">
@@ -2173,8 +2200,8 @@ function renderAuthoritySosCard(incident) {
                     <div class="sos-meta-label"><i class="fas fa-shield-alt"></i> Workflow</div>
                     <div class="sos-meta-value" style="font-size:0.78rem;line-height:1.5;">
                         ${SOS_STATUS_ORDER.map((s, i) => `
-                            <span style="${i < currentIdx ? 'color:#48cae4;' : i === currentIdx ? 'color:#f07167;font-weight:bold;' : 'color:#6f8aa5;'}">
-                                ${i < currentIdx ? '<i class="fas fa-check"></i>' : i === currentIdx ? '<i class="fas fa-play"></i>' : '<i class="far fa-circle"></i>'}
+                            <span style="${i < currentIdx || (isResolved && s === 'RESOLVED') ? 'color:#48cae4;' : i === currentIdx ? 'color:#f07167;font-weight:bold;' : 'color:#6f8aa5;'}">
+                                ${i < currentIdx || (isResolved && s === 'RESOLVED') ? '<i class="fas fa-check"></i>' : i === currentIdx ? '<i class="fas fa-play"></i>' : '<i class="far fa-circle"></i>'}
                                 ${SOS_STATUS_LABEL[s]}
                             </span>
                         `).join(' · ')}
@@ -2193,26 +2220,41 @@ function renderAuthoritySosCard(incident) {
                         <i class="fas fa-arrow-right"></i> Mark: ${SOS_STATUS_LABEL[nextStatus]}
                     </button>
                 ` : ''}
-                <button class="sos-action-btn secondary" onclick="showSosAdvanceMenu('${incident.id}', '${status}')">
-                    <i class="fas fa-step-forward"></i> Skip / Change status
-                </button>
+                ${!isResolved ? `
+                    <button class="sos-action-btn secondary" onclick="showSosAdvanceMenu('${incident.id}', '${status}')">
+                        <i class="fas fa-step-forward"></i> Skip / Change status
+                    </button>
+                ` : ''}
                 ${canResolve ? `
                     <button class="sos-action-btn resolve" onclick="updateSosStatus('${incident.id}', 'RESOLVED')">
-                        <i class="fas fa-check-double"></i> Resolve
+                        <i class="fas fa-check-double"></i> Resolve & Auto-Remove
                     </button>
                 ` : ''}
                 <button class="sos-action-btn warn" onclick="promptSosNotes('${incident.id}')">
                     <i class="fas fa-edit"></i> Edit notes
                 </button>
+                ${isResolved ? `
+                    <button class="sos-action-btn delete" onclick="deleteSosIncident('${incident.id}')" title="Permanently delete this SOS record">
+                        <i class="fas fa-trash-alt"></i> Delete record
+                    </button>
+                ` : ''}
             </div>
         </div>
     `;
 }
 
-async function loadAuthoritySosList() {
+async function loadAuthoritySosList(silent = false) {
     const listEl = document.getElementById('authoritySosList');
     const summaryEl = document.getElementById('authoritySosSummary');
     if (!listEl) return;
+
+    if (!silent && listEl.children.length === 0) {
+        listEl.innerHTML = `
+            <div style="text-align:center; color:#bdc3c7; padding:1.5rem;">
+                <i class="fas fa-spinner fa-spin"></i> Loading SOS incidents…
+            </div>
+        `;
+    }
 
     try {
         const [listResp, statsResp] = await Promise.all([
@@ -2248,22 +2290,69 @@ async function loadAuthoritySosList() {
                 </div>
                 <div class="sos-summary-tile">
                     <div class="sos-summary-number" style="color:#48cae4;">${s.active || 0}</div>
-                    <div class="sos-summary-label">Active (not resolved)</div>
+                    <div class="sos-summary-label">Active (in queue)</div>
                 </div>
             `;
         }
 
         if (listData.success && Array.isArray(listData.incidents)) {
-            if (listData.incidents.length === 0) {
-                listEl.innerHTML = `
-                    <div style="text-align:center; padding:2rem; color:#a9c6de; background:rgba(0,0,0,0.2); border-radius:10px;">
-                        <i class="fas fa-check-circle" style="font-size:2.2rem; color:#48cae4; margin-bottom:0.75rem; display:block;"></i>
-                        <strong style="color:#e8eef7;">No SOS incidents at the moment.</strong>
-                        <div style="margin-top:0.4rem; font-size:0.88rem;">When a user triggers SOS, it will appear here for acknowledgment and assignment.</div>
-                    </div>
-                `;
+            const allIncidents = listData.incidents;
+            const activeIncidents = allIncidents.filter(i => i.status !== 'RESOLVED');
+            const resolvedIncidents = allIncidents.filter(i => i.status === 'RESOLVED');
+
+            // Update badge counts on filter buttons
+            const badgeActive = document.getElementById('sosBadgeActive');
+            const badgeResolved = document.getElementById('sosBadgeResolved');
+            const badgeAll = document.getElementById('sosBadgeAll');
+            if (badgeActive) badgeActive.textContent = activeIncidents.length;
+            if (badgeResolved) badgeResolved.textContent = resolvedIncidents.length;
+            if (badgeAll) badgeAll.textContent = allIncidents.length;
+
+            let displayedIncidents = [];
+            if (currentSosFilter === 'active') {
+                displayedIncidents = activeIncidents;
+            } else if (currentSosFilter === 'resolved') {
+                displayedIncidents = resolvedIncidents;
             } else {
-                listEl.innerHTML = listData.incidents.map(renderAuthoritySosCard).join('');
+                displayedIncidents = allIncidents;
+            }
+
+            if (displayedIncidents.length === 0) {
+                if (currentSosFilter === 'active') {
+                    listEl.innerHTML = `
+                        <div style="text-align:center; padding:2.5rem 1.5rem; color:#a9c6de; background:rgba(0,0,0,0.2); border-radius:12px; border:1px dashed rgba(72, 202, 228, 0.25);">
+                            <i class="fas fa-check-circle" style="font-size:2.5rem; color:#48cae4; margin-bottom:0.75rem; display:block;"></i>
+                            <strong style="color:#e8eef7; font-size:1.1rem;">No Active SOS Emergencies</strong>
+                            <div style="margin-top:0.4rem; font-size:0.88rem; color:#8aa2bb;">All emergency incidents are resolved. New alerts will appear here in real time.</div>
+                        </div>
+                    `;
+                } else if (currentSosFilter === 'resolved') {
+                    listEl.innerHTML = `
+                        <div style="text-align:center; padding:2rem; color:#a9c6de; background:rgba(0,0,0,0.2); border-radius:10px;">
+                            <i class="fas fa-archive" style="font-size:2rem; color:#8aa2bb; margin-bottom:0.5rem; display:block;"></i>
+                            <div>No resolved SOS incidents on record.</div>
+                        </div>
+                    `;
+                } else {
+                    listEl.innerHTML = `
+                        <div style="text-align:center; padding:2rem; color:#a9c6de; background:rgba(0,0,0,0.2); border-radius:10px;">
+                            <i class="fas fa-inbox" style="font-size:2rem; color:#8aa2bb; margin-bottom:0.5rem; display:block;"></i>
+                            <div>No SOS incidents recorded.</div>
+                        </div>
+                    `;
+                }
+            } else {
+                let html = displayedIncidents.map(renderAuthoritySosCard).join('');
+                if (currentSosFilter === 'resolved' && displayedIncidents.length > 0) {
+                    html += `
+                        <div style="text-align:right; margin-top:0.5rem;">
+                            <button type="button" class="sos-action-btn delete" onclick="purgeResolvedSos()" style="font-size:0.82rem; padding:6px 14px;">
+                                <i class="fas fa-trash-alt"></i> Purge All ${displayedIncidents.length} Resolved Record(s)
+                            </button>
+                        </div>
+                    `;
+                }
+                listEl.innerHTML = html;
             }
         } else {
             listEl.innerHTML = `
@@ -2274,7 +2363,7 @@ async function loadAuthoritySosList() {
         }
     } catch (error) {
         console.error('loadAuthoritySosList error:', error);
-        if (listEl) {
+        if (listEl && !silent) {
             listEl.innerHTML = `
                 <div style="text-align:center; padding:1rem; color:#f07167;">
                     Network error loading SOS list: ${error.message}
@@ -2285,6 +2374,14 @@ async function loadAuthoritySosList() {
 }
 
 async function updateSosStatus(sosId, nextStatus, notes = undefined) {
+    const cardEl = document.querySelector(`.sos-card[data-sos-id="${sosId}"]`);
+    const isResolving = nextStatus === 'RESOLVED';
+
+    // If resolving and on the active view, immediately start smooth exit animation
+    if (isResolving && currentSosFilter === 'active' && cardEl) {
+        cardEl.classList.add('auto-deleting');
+    }
+
     try {
         const payload = { status: nextStatus };
         if (notes !== undefined) payload.notes = notes;
@@ -2300,11 +2397,70 @@ async function updateSosStatus(sosId, nextStatus, notes = undefined) {
         if (!res.ok || !data.success) {
             throw new Error(data.error || 'Failed to update status');
         }
-        showNotification(data.message || 'Status updated.', 'success');
-        loadAuthoritySosList();
+
+        if (isResolving) {
+            showNotification('SOS marked as resolved and automatically cleared from active queue.', 'success');
+            setTimeout(() => {
+                loadAuthoritySosList(true);
+            }, 350);
+        } else {
+            showNotification(data.message || 'Status updated.', 'success');
+            loadAuthoritySosList(true);
+        }
     } catch (error) {
         console.error('updateSosStatus error:', error);
+        if (cardEl) cardEl.classList.remove('auto-deleting');
         showNotification('Could not update SOS status: ' + error.message, 'error');
+    }
+}
+
+async function deleteSosIncident(sosId) {
+    if (!confirm('Are you sure you want to permanently delete this SOS record?')) {
+        return;
+    }
+
+    const cardEl = document.querySelector(`.sos-card[data-sos-id="${sosId}"]`);
+    if (cardEl) cardEl.classList.add('auto-deleting');
+
+    try {
+        const res = await fetch(`${API_BASE}/api/sos/${encodeURIComponent(sosId)}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Failed to delete SOS record');
+        }
+
+        showNotification('SOS incident permanently deleted.', 'success');
+        setTimeout(() => {
+            loadAuthoritySosList(true);
+        }, 350);
+    } catch (error) {
+        console.error('deleteSosIncident error:', error);
+        if (cardEl) cardEl.classList.remove('auto-deleting');
+        showNotification('Failed to delete SOS: ' + error.message, 'error');
+    }
+}
+
+async function purgeResolvedSos() {
+    if (!confirm('Are you sure you want to permanently purge all resolved SOS records from the database?')) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/api/sos/purge/resolved`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Failed to purge resolved records');
+        }
+
+        showNotification(data.message || 'Resolved SOS records purged.', 'success');
+        loadAuthoritySosList(true);
+    } catch (error) {
+        console.error('purgeResolvedSos error:', error);
+        showNotification('Failed to purge resolved SOS: ' + error.message, 'error');
     }
 }
 

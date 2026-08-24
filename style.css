@@ -1122,10 +1122,104 @@
             background: rgba(72, 202, 228, 0.22);
         }
 
+        .sos-action-btn.delete {
+            background: rgba(240, 113, 103, 0.12);
+            border-color: rgba(240, 113, 103, 0.45);
+            color: #f07167;
+        }
+
+        .sos-action-btn.delete:hover {
+            background: rgba(240, 113, 103, 0.25);
+            color: #ff8b82;
+        }
+
         .sos-action-btn:disabled {
             opacity: 0.4;
             cursor: not-allowed;
             transform: none !important;
+        }
+
+        @keyframes sosDeleteFadeOut {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+                max-height: 600px;
+                margin-bottom: 1rem;
+                padding-top: 1rem;
+                padding-bottom: 1.1rem;
+            }
+            40% {
+                opacity: 0.3;
+                transform: scale(0.96) translateY(-4px);
+                background: rgba(72, 202, 228, 0.18);
+                border-color: rgba(72, 202, 228, 0.5);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0.9) translateY(-14px);
+                max-height: 0;
+                margin-top: 0;
+                margin-bottom: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                border-width: 0;
+                overflow: hidden;
+            }
+        }
+
+        .sos-card.auto-deleting {
+            animation: sosDeleteFadeOut 0.45s ease-out forwards;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .sos-filter-group {
+            display: inline-flex;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid rgba(144, 224, 239, 0.18);
+            gap: 4px;
+        }
+
+        .sos-filter-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: #a9c6de;
+            padding: 6px 12px;
+            border-radius: 7px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sos-filter-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .sos-filter-btn.active {
+            background: rgba(0, 180, 216, 0.22);
+            color: #48cae4;
+            border-color: rgba(0, 180, 216, 0.45);
+            box-shadow: 0 0 10px rgba(0, 180, 216, 0.15);
+        }
+
+        .sos-filter-btn .sos-badge-pill {
+            background: rgba(255, 255, 255, 0.12);
+            padding: 1px 7px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        .sos-filter-btn.active .sos-badge-pill {
+            background: rgba(72, 202, 228, 0.3);
+            color: #e8eef7;
         }
 
         .sos-summary-tile {
