@@ -1,4 +1,5 @@
 let map;
+let mapTileLayer = null;
 let currentLocation = null;
 let selectedSeverity = null;
 let reports = [];
@@ -43,11 +44,76 @@ const API_BASE = window.location.hostname === 'localhost'
 // Social signals data
 let socialSignals = [];
 
+function initTheme() {
+    const savedTheme = localStorage.getItem('coastwatch_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeToggleUI(savedTheme);
+    startLiveClock();
+}
+
+function updateThemeToggleUI(theme) {
+    const icon = document.getElementById('themeToggleIcon');
+    const btn = document.getElementById('themeToggleBtn');
+    if (!icon) return;
+    if (theme === 'dark') {
+        icon.className = 'fas fa-sun';
+        icon.style.color = '#FBBF24';
+        if (btn) btn.setAttribute('title', 'Switch to Light mode');
+    } else {
+        icon.className = 'fas fa-moon';
+        icon.style.color = '#3B82F6';
+        if (btn) btn.setAttribute('title', 'Switch to Dark mode');
+    }
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try {
+        localStorage.setItem('coastwatch_theme', next);
+    } catch (_) {}
+    updateThemeToggleUI(next);
+    updateMapTilesForTheme(next);
+}
+
+function startLiveClock() {
+    function tick() {
+        const el = document.getElementById('liveClockText');
+        if (el) {
+            el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+    }
+    tick();
+    setInterval(tick, 1000);
+}
+
+function getMapTileUrl(theme) {
+    if (theme === 'light') {
+        return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    }
+    return 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+}
+
+function updateMapTilesForTheme(theme) {
+    if (!map) return;
+    const url = getMapTileUrl(theme);
+    if (mapTileLayer) {
+        map.removeLayer(mapTileLayer);
+    }
+    mapTileLayer = L.tileLayer(url, {
+        attribution: '© OpenStreetMap contributors, © CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+    initTheme();
     initializeMap();
     setupFormHandlers();
     loadAppData();
-    fetchSocialSignals(); // Fetch social intelligence data
+    fetchSocialSignals();
     checkAuth();
 
     document.addEventListener('click', function (event) {
@@ -87,9 +153,10 @@ async function loadCurrentUser() {
                 `<i class="fas fa-star"></i> Trust Score: ${userTrustScore}`;
         }
 
-        const welcome = document.querySelector('.user-info span');
+        const welcome = document.getElementById('welcomeText');
+        const role = localStorage.getItem('coastwatchRole') || (data.user && data.user.role) || 'USER';
         if (welcome) {
-            welcome.textContent = `Welcome, ${data.user.displayName || data.user.username}`;
+            welcome.textContent = `Welcome, ${role === 'ADMIN' ? 'Administrator' : 'User'}`;
         }
     } catch (error) {
         console.error(error);
@@ -391,10 +458,17 @@ function showTab(tabName) {
 }
 
 function initializeMap() {
-    map = L.map('mapContainer').setView([20.5937, 78.9629], 5);
+    map = L.map('mapContainer', {
+        zoomControl: true
+    }).setView([20.5937, 78.9629], 5);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const tileUrl = getMapTileUrl(currentTheme);
+
+    mapTileLayer = L.tileLayer(tileUrl, {
+        attribution: '© OpenStreetMap contributors, © CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
     }).addTo(map);
 
     const legend = L.control({
@@ -403,21 +477,14 @@ function initializeMap() {
 
     legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'info legend');
-
-        div.style.background = 'rgba(255,255,255,0.9)';
-        div.style.padding = '10px';
-        div.style.borderRadius = '8px';
-        div.style.fontSize = '12px';
-
         div.innerHTML = `
-            <h4 style="margin: 0 0 5px 0; color: #333;">Risk Levels</h4>
-            <div style="color: #333;">
-                <i style="background: red; width: 12px; height: 12px; display: inline-block; border-radius: 50%; margin-right: 5px;"></i>High Risk<br>
-                <i style="background: orange; width: 12px; height: 12px; display: inline-block; border-radius: 50%; margin-right: 5px;"></i>Medium Risk<br>
-                <i style="background: green; width: 12px; height: 12px; display: inline-block; border-radius: 50%; margin-right: 5px;"></i>Low Risk<br>
+            <h4>Risk Levels</h4>
+            <div>
+                <i style="background: #EF4444; width: 12px; height: 12px; display: inline-block; border-radius: 50%; margin-right: 6px;"></i>High Risk<br>
+                <i style="background: #F59E0B; width: 12px; height: 12px; display: inline-block; border-radius: 50%; margin-right: 6px;"></i>Medium Risk<br>
+                <i style="background: #10B981; width: 12px; height: 12px; display: inline-block; border-radius: 50%; margin-right: 6px;"></i>Low Risk<br>
             </div>
         `;
-
         return div;
     };
 
@@ -518,19 +585,19 @@ function refreshMapMarkers() {
         const countBadge = count > 1 ? `<span style="background:rgba(255,255,255,0.25); padding:2px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">${count} reports</span>` : '';
 
         circle.bindPopup(`
-            <div style="font-family: inherit; line-height: 1.4; min-width: 220px;">
+            <div style="font-family: var(--font-main, sans-serif); line-height: 1.45; min-width: 230px; color: #F5F9FC;">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                    <span style="font-weight:700; color:${color}; text-transform:uppercase; font-size:0.85rem;">
+                    <span style="font-weight:800; color:${color}; text-transform:uppercase; font-size:0.8rem; letter-spacing: 0.5px;">
                         ${cluster.severity.toUpperCase()} RISK ${countBadge}
                     </span>
-                    <span style="font-size:0.75rem; color:#888;">${primaryReport.timestamp ? primaryReport.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                    <span style="font-size:0.72rem; color:#A9BBCB; font-family: var(--font-mono, monospace);">${primaryReport.timestamp ? primaryReport.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                 </div>
-                <h4 style="margin: 0 0 6px 0; color:#1a1a1a;">${escapeHtml(hazardBadgeLabel(primaryReport))}</h4>
-                <p style="margin: 0 0 4px 0; font-size:0.85rem;"><strong>Location:</strong> ${escapeHtml(cluster.location || 'Active Hazard Area')}</p>
-                <p style="margin: 0 0 6px 0; font-size:0.85rem; color:#444;">${escapeHtml(primaryReport.description || 'Active incident in this region.')}</p>
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; border-top:1px solid #eee; padding-top:6px; margin-top:6px;">
-                    <span style="color:#555;">Reporter: ${escapeHtml(displayReporterName(primaryReport))}</span>
-                    <span style="color:${primaryReport.verified ? '#27ae60' : '#f39c12'}; font-weight:600;">
+                <h4 style="margin: 0 0 6px 0; color:#F5F9FC; font-size: 1rem; font-weight: 700;">${escapeHtml(hazardBadgeLabel(primaryReport))}</h4>
+                <p style="margin: 0 0 4px 0; font-size:0.82rem; color:#A9BBCB;"><strong style="color:#F5F9FC;">Location:</strong> ${escapeHtml(cluster.location || 'Active Hazard Area')}</p>
+                <p style="margin: 0 0 8px 0; font-size:0.82rem; color:#D2DEE8;">${escapeHtml(primaryReport.description || 'Active incident in this region.')}</p>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:6px; margin-top:6px;">
+                    <span style="color:#A9BBCB;">Reporter: ${escapeHtml(displayReporterName(primaryReport))}</span>
+                    <span style="color:${primaryReport.verified ? '#35D07F' : '#FFB547'}; font-weight:700;">
                         ${primaryReport.verified ? '✓ Verified' : '⚠ Active'}
                     </span>
                 </div>
@@ -553,15 +620,15 @@ function refreshMapMarkers() {
             }).addTo(map);
 
             marker.bindPopup(`
-                <div style="min-width: 200px;">
-                    <div style="background: #9b59b6; color: white; padding: 4px 8px; border-radius: 4px; display: inline-block; font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;">
-                        <i class="fab fa-twitter"></i> SOCIAL SIGNAL
+                <div style="min-width: 220px; font-family: var(--font-main, sans-serif); color: #F5F9FC;">
+                    <div style="background: rgba(157, 78, 221, 0.25); border: 1px solid rgba(157, 78, 221, 0.6); color: #D6A4FF; padding: 3px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase;">
+                        <i class="fab fa-twitter"></i> Social Signal
                     </div>
-                    <h4 style="margin:0 0 4px 0;">Potential ${escapeHtml(signal.hazard_type || 'Incident')}</h4>
-                    <p style="margin:0 0 4px 0; font-size:0.85rem;"><strong>Confidence:</strong> ${signal.confidence_score}%</p>
-                    <p style="margin:0 0 4px 0; font-size:0.85rem;"><strong>Location:</strong> ${escapeHtml(signal.location)}</p>
-                    <p style="font-style: italic; font-size:0.85rem; margin:4px 0;">"${escapeHtml(signal.text)}"</p>
-                    <div style="color: #27ae60; font-size:0.8rem; margin-top: 6px;">✓ Verified Incident</div>
+                    <h4 style="margin:0 0 4px 0; font-size: 0.95rem; font-weight: 700; color: #F5F9FC;">Potential ${escapeHtml(signal.hazard_type || 'Incident')}</h4>
+                    <p style="margin:0 0 4px 0; font-size:0.82rem; color:#A9BBCB;"><strong style="color:#F5F9FC;">Confidence:</strong> ${signal.confidence_score}%</p>
+                    <p style="margin:0 0 4px 0; font-size:0.82rem; color:#A9BBCB;"><strong style="color:#F5F9FC;">Location:</strong> ${escapeHtml(signal.location)}</p>
+                    <p style="font-style: italic; font-size:0.82rem; margin:6px 0; color: #D2DEE8; background: rgba(0,0,0,0.25); padding: 6px 8px; border-radius: 4px;">"${escapeHtml(signal.text)}"</p>
+                    <div style="color: #35D07F; font-size:0.78rem; font-weight: 700; margin-top: 6px;">✓ Verified Incident</div>
                 </div>
             `);
 
@@ -1066,22 +1133,22 @@ function populateRecentReports() {
                     </span>
 
                     <span class="timestamp">
-                        ${report.timestamp.toLocaleString()}
+                        <i class="fas fa-clock" style="font-size:0.75rem; margin-right:3px;"></i>${report.timestamp.toLocaleString()}
                     </span>
                 </div>
 
-                <h4>${report.location}</h4>
+                <h4><i class="fas fa-location-dot" style="color: var(--color-cyan-bright); font-size: 0.95rem; margin-right: 4px;"></i>${escapeHtml(report.location)}</h4>
 
-                <p>${report.description}</p>
+                <p>${escapeHtml(report.description)}</p>
 
-                <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
-                    <span>By: ${displayReporterName(report)}</span>
+                <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.75rem; font-size: 0.82rem;">
+                    <span style="color: var(--color-text-muted);"><i class="fas fa-user-circle"></i> ${escapeHtml(displayReporterName(report))}</span>
 
-                    <span style="display: flex; align-items: center; gap: 10px;">
+                    <span style="display: flex; align-items: center; gap: 8px;">
                         ${
                             report.verified
-                                ? `<span style="color: #27ae60;"><i class="fas fa-check-circle"></i> Verified Trust: ${report.trustScore}%</span>`
-                                : `<span style="color: #f1c40f;"><i class="fas fa-clock"></i> Pending</span>`
+                                ? `<span style="color: var(--color-success); font-weight: 700;"><i class="fas fa-circle-check"></i> Verified (${report.trustScore}%)</span>`
+                                : `<span style="color: var(--color-warning); font-weight: 600;"><i class="fas fa-hourglass-half"></i> Under Review</span>`
                         }
                     </span>
                 </div>
@@ -1102,14 +1169,15 @@ async function fetchSocialSignals() {
             const hasSimulated = socialSignals.some(s => s.simulated);
             const demoBanner = document.getElementById('socialDemoBanner');
             if (demoBanner) {
+                demoBanner.style.display = 'block';
+                demoBanner.style.background = '';
+                demoBanner.style.color = '';
                 if (data.provider === 'x' && !hasSimulated) {
-                    demoBanner.style.display = 'block';
-                    demoBanner.style.background = '#2ecc71';
+                    demoBanner.className = 'demo-banner live-data';
                     demoBanner.innerHTML = '<i class="fas fa-satellite-dish"></i> LIVE X DATA • OFFICIAL API';
                 } else {
-                    demoBanner.style.display = 'block';
-                    demoBanner.style.background = '#f39c12';
-                    demoBanner.innerHTML = '<i class="fas fa-flask"></i> DEMO MODE • SIMULATED SOCIAL DATA';
+                    demoBanner.className = 'demo-banner';
+                    demoBanner.innerHTML = '<i class="fas fa-flask"></i> DEMO MODE • SIMULATED SOCIAL SIGNAL STREAM';
                 }
             }
             
@@ -1126,7 +1194,7 @@ async function fetchSocialSignals() {
         }
     } catch (e) {
         console.error('Failed to fetch social signals:', e);
-        document.getElementById('socialFeedContainer').innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #e74c3c;">Failed to load social intelligence data.</div>';
+        document.getElementById('socialFeedContainer').innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--color-danger);">Failed to load social intelligence data.</div>';
     }
 }
 
@@ -1144,7 +1212,7 @@ function renderSocialSignals() {
     });
     
     if (filtered.length === 0) {
-        container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #bdc3c7;">No signals found matching filters.</div>';
+        container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--color-text-muted);">No signals found matching filters.</div>';
         return;
     }
     
@@ -1152,40 +1220,45 @@ function renderSocialSignals() {
     const isAdmin = role === 'ADMIN';
 
     container.innerHTML = filtered.map(signal => {
-        let statusColor = '#bdc3c7';
-        if (signal.status === 'NEW') statusColor = '#3498db';
-        if (signal.status === 'UNDER REVIEW') statusColor = '#f39c12';
-        if (signal.status === 'VERIFIED') statusColor = '#2ecc71';
-        if (signal.status === 'DISMISSED') statusColor = '#e74c3c';
+        let pillClass = 'online';
+        if (signal.status === 'NEW') pillClass = 'online';
+        if (signal.status === 'UNDER REVIEW') pillClass = 'warning';
+        if (signal.status === 'VERIFIED') pillClass = 'online';
+        if (signal.status === 'DISMISSED') pillClass = 'critical';
         
         let actionsHtml = '';
         if (isAdmin) {
             actionsHtml = `
-                <div style="display: flex; gap: 10px; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-                    ${signal.status === 'NEW' ? `<button onclick="handleSocialAction('${signal.id}', 'review')" style="flex: 1; background: #f39c12; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Review</button>` : ''}
-                    ${signal.status !== 'VERIFIED' ? `<button onclick="handleSocialAction('${signal.id}', 'verify')" style="flex: 1; background: #2ecc71; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Verify</button>` : ''}
-                    ${signal.status !== 'DISMISSED' ? `<button onclick="handleSocialAction('${signal.id}', 'dismiss')" style="flex: 1; background: #e74c3c; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Dismiss</button>` : ''}
+                <div style="display: flex; gap: 8px; margin-top: 14px; border-top: 1px solid var(--color-border); padding-top: 12px;">
+                    ${signal.status === 'NEW' ? `<button onclick="handleSocialAction('${signal.id}', 'review')" class="btn" style="flex: 1; background: var(--color-warning-dim); border: 1px solid var(--color-warning-border); color: var(--color-warning); padding: 6px 10px; font-size: 0.8rem; margin: 0;"><i class="fas fa-eye"></i> Review</button>` : ''}
+                    ${signal.status !== 'VERIFIED' ? `<button onclick="handleSocialAction('${signal.id}', 'verify')" class="btn" style="flex: 1; background: var(--color-secondary-dim); border: 1px solid var(--color-secondary-border); color: var(--color-secondary); padding: 6px 10px; font-size: 0.8rem; margin: 0;"><i class="fas fa-check"></i> Verify</button>` : ''}
+                    ${signal.status !== 'DISMISSED' ? `<button onclick="handleSocialAction('${signal.id}', 'dismiss')" class="btn btn-danger" style="flex: 1; padding: 6px 10px; font-size: 0.8rem; margin: 0;"><i class="fas fa-ban"></i> Dismiss</button>` : ''}
                 </div>
             `;
         }
 
         return `
-            <div class="report-form" style="background: rgba(255,255,255,0.05); padding: 15px; border: 1px solid rgba(255,255,255,0.1); position: relative;">
-                <div style="position: absolute; top: 15px; right: 15px; background: ${statusColor}; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">
-                    ${signal.status}
+            <div class="report-form" style="padding: 1.25rem; border: 1px solid var(--color-border); position: relative; display: flex; flex-direction: column; justify-content: space-between; border-radius: var(--radius-md);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fab fa-twitter" style="color: #1DA1F2; font-size: 1.15rem;"></i>
+                        <div>
+                            <strong style="color: var(--color-text-primary); font-size: 0.9rem;">${escapeHtml(signal.author || 'Citizen Signal')}</strong>
+                            <div style="color: var(--color-text-secondary); font-size: 0.72rem; font-family: var(--font-mono);">${new Date(signal.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${new Date(signal.timestamp).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                    <span class="stat-pill ${pillClass}">
+                        <i class="fas fa-circle"></i> ${signal.status}
+                    </span>
                 </div>
-                <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fab fa-${signal.source.toLowerCase() === 'x' ? 'twitter' : 'twitter'}" style="color: #1DA1F2; font-size: 1.2rem;"></i>
-                    <strong>${signal.author || 'Unknown User'}</strong>
-                    <span style="color: #bdc3c7; font-size: 0.85rem;">${new Date(signal.timestamp).toLocaleString()}</span>
-                </div>
-                <p style="margin-bottom: 15px; font-size: 0.95rem; line-height: 1.5;">"${signal.text}"</p>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
-                    <div><i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i> Hazard: <strong style="text-transform: capitalize;">${signal.hazard_type}</strong></div>
-                    <div><i class="fas fa-map-marker-alt" style="color: #e74c3c;"></i> Location: <strong>${signal.location}</strong></div>
-                    <div><i class="fas fa-tachometer-alt" style="color: ${signal.confidence_score > 75 ? '#2ecc71' : '#f39c12'};"></i> Confidence: <strong>${signal.confidence_score}%</strong></div>
-                    <div><i class="fas fa-users" style="color: #3498db;"></i> Corroboration: <strong>${signal.corroboration_count} reports</strong></div>
+                <p style="margin-bottom: 12px; font-size: 0.88rem; line-height: 1.45; color: var(--color-text-primary); font-style: italic; background: var(--color-surface-elevated); padding: 10px 12px; border-radius: var(--radius-sm); border-left: 3px solid var(--color-primary);">"${escapeHtml(signal.text)}"</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; background: var(--color-surface-elevated); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+                    <div><i class="fas fa-layer-group" style="color: var(--color-primary);"></i> Hazard: <strong style="text-transform: capitalize; color: var(--color-text-primary);">${escapeHtml(signal.hazard_type)}</strong></div>
+                    <div><i class="fas fa-location-dot" style="color: var(--color-danger);"></i> Location: <strong style="color: var(--color-text-primary);">${escapeHtml(signal.location)}</strong></div>
+                    <div><i class="fas fa-gauge-high" style="color: ${signal.confidence_score > 75 ? 'var(--color-secondary)' : 'var(--color-warning)'};"></i> Confidence: <strong style="color: var(--color-text-primary);">${signal.confidence_score}%</strong></div>
+                    <div><i class="fas fa-users" style="color: var(--color-primary);"></i> Corroboration: <strong style="color: var(--color-text-primary);">${signal.corroboration_count}</strong></div>
                 </div>
                 
                 ${actionsHtml}
@@ -1508,13 +1581,9 @@ async function triggerSOS() {
     const sosButton = document.getElementById('sosButton');
     if (sosButton) {
         sosButton.innerHTML = `
-            <i class="fas fa-satellite-dish"
-               style="font-size: 3rem; margin-bottom: 10px; animation: spin 2s linear infinite;">
-            </i>
+            <i class="fas fa-satellite-dish fa-spin"></i>
             <div>REGISTERING…</div>
-            <div style="font-size: 1rem; margin-top: 5px;">
-                PLEASE WAIT
-            </div>
+            <div>PLEASE WAIT</div>
         `;
     }
 
@@ -1553,13 +1622,9 @@ async function triggerSOS() {
 
         if (sosButton) {
             sosButton.innerHTML = `
-                <i class="fas fa-broadcast-tower"
-                   style="font-size: 3rem; margin-bottom: 10px; animation: sosPulse 1.6s ease-in-out infinite;">
-                </i>
+                <i class="fas fa-tower-broadcast"></i>
                 <div>SOS LIVE</div>
-                <div style="font-size: 1rem; margin-top: 5px;">
-                    STATUS BELOW
-                </div>
+                <div>STATUS BELOW</div>
             `;
         }
 
@@ -1579,19 +1644,19 @@ async function triggerSOS() {
         if (timelineEl) {
             timelineEl.innerHTML = `
                 <div class="sos-timeline-step current">
-                    <div class="sos-timeline-icon" style="background:rgba(240,113,103,0.15);border-color:rgba(240,113,103,0.55);color:#f07167;"><i class="fas fa-times-circle"></i></div>
+                    <div class="sos-timeline-icon" style="background:var(--color-danger-dim);border-color:var(--color-danger-border);color:var(--color-danger);"><i class="fas fa-circle-xmark"></i></div>
                     <div class="sos-timeline-content">
-                        <div class="sos-timeline-title"><span style="color:#f07167;">Failed to register SOS</span></div>
-                        <div class="sos-timeline-note">${error.message || 'Unknown error.'} If this is a real emergency, please call <a href="tel:112" style="color:#48cae4;">112</a> immediately.</div>
+                        <div class="sos-timeline-title"><span style="color:var(--color-danger);">Failed to register SOS</span></div>
+                        <div class="sos-timeline-note">${error.message || 'Unknown error.'} If this is a real emergency, please call <a href="tel:112" style="color:var(--color-danger); font-weight:700;">112</a> immediately.</div>
                     </div>
                 </div>
             `;
         }
         if (sosButton) {
             sosButton.innerHTML = `
-                <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 10px;"></i>
+                <i class="fas fa-triangle-exclamation"></i>
                 <div>RETRY SOS</div>
-                <div style="font-size: 1rem; margin-top: 5px;">TAP TO TRY AGAIN</div>
+                <div>TAP TO RETRY</div>
             `;
         }
         showNotification('Failed to activate SOS: ' + (error.message || 'server error'), 'error');
@@ -1617,15 +1682,9 @@ function resetSOS() {
     const sosButton = document.getElementById('sosButton');
     if (sosButton) {
         sosButton.innerHTML = `
-            <i class="fas fa-exclamation-triangle"
-               style="font-size: 3rem; margin-bottom: 10px;">
-            </i>
-
+            <i class="fas fa-triangle-exclamation"></i>
             <div>SOS</div>
-
-            <div style="font-size: 1rem; margin-top: 5px;">
-                TAP FOR HELP
-            </div>
+            <div>TAP FOR HELP</div>
         `;
     }
 
@@ -1658,17 +1717,15 @@ async function restoreSosFromStorage() {
         const sosButton = document.getElementById('sosButton');
         if (sosButton && incident.status !== 'RESOLVED') {
             sosButton.innerHTML = `
-                <i class="fas fa-broadcast-tower"
-                   style="font-size: 3rem; margin-bottom: 10px; animation: sosPulse 1.6s ease-in-out infinite;">
-                </i>
+                <i class="fas fa-tower-broadcast"></i>
                 <div>SOS LIVE</div>
-                <div style="font-size: 1rem; margin-top: 5px;">STATUS BELOW</div>
+                <div>STATUS BELOW</div>
             `;
         } else if (sosButton) {
             sosButton.innerHTML = `
-                <i class="fas fa-check-double" style="font-size: 3rem; margin-bottom: 10px; color: #48cae4;"></i>
+                <i class="fas fa-check-double" style="color: var(--color-secondary);"></i>
                 <div>SOS RESOLVED</div>
-                <div style="font-size: 1rem; margin-top: 5px;">CASE CLOSED</div>
+                <div>CASE CLOSED</div>
             `;
         }
 
@@ -2545,12 +2602,12 @@ function handleLogin() {
     const code = document.getElementById('accessCode').value.trim();
     const errorEl = document.getElementById('loginError');
     
-    if (code === 'COAST-USER-2026') {
+    if (code === 'USER') {
         localStorage.setItem('coastwatchAuthenticated', 'true');
         localStorage.setItem('coastwatchRole', 'USER');
         errorEl.style.display = 'none';
         checkAuth();
-    } else if (code === 'COAST-ADMIN-2026') {
+    } else if (code === 'ADMIN') {
         localStorage.setItem('coastwatchAuthenticated', 'true');
         localStorage.setItem('coastwatchRole', 'ADMIN');
         errorEl.style.display = 'none';

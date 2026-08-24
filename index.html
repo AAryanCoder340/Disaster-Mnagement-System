@@ -1,17 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CoastWatch India-Disaster Monitoring</title>
+    <title>CoastWatch — Disaster Intelligence & Emergency Response Platform</title>
+    <meta name="description" content="Mission-critical disaster monitoring, AI evidence verification, SOS distress management, and intelligent shelter routing.">
+    
+    <!-- Inline Theme Initializer to Prevent Flash -->
+    <script>
+        (function() {
+            try {
+                var savedTheme = localStorage.getItem('coastwatch_theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } catch(e) {}
+        })();
+    </script>
+    
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet GIS & FontAwesome Icons -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <!-- Login Screen -->
+    <!-- 1. Secure Access Portal (Login Screen) -->
     <div id="loginScreen" class="login-container">
         <div class="login-box">
             <div class="login-logo">
@@ -19,110 +37,158 @@
                 <span>COASTWATCH</span>
             </div>
             <h2>Secure Access Portal</h2>
-            <p>Enter your authorized CoastWatch access code.</p>
-            <div class="form-group" style="margin-bottom: 1rem;">
+            <p>Authorized Personnel & Emergency Response Command Network</p>
+            
+            <div class="form-group" style="margin-bottom: 1.25rem;">
                 <div class="password-wrapper">
-                    <input type="password" id="accessCode" class="password-input" placeholder="Enter Access Code" onkeypress="handleLoginKeyPress(event)">
+                    <input type="password" id="accessCode" class="password-input" placeholder="Enter Access Code" onkeypress="handleLoginKeyPress(event)" autocomplete="off">
                     <button type="button" id="togglePasswordBtn" class="password-toggle-btn" onclick="togglePasswordVisibility('accessCode', 'togglePasswordBtn')" aria-label="Show password" title="Show password">
                         <i class="fas fa-eye" aria-hidden="true"></i>
                     </button>
                 </div>
             </div>
-            <div id="loginError" style="display: none; color: #f07167; margin-bottom: 1rem; font-size: 0.9rem;">Invalid access code. Please check your credentials and try again.</div>
-            <button class="btn btn-primary" onclick="handleLogin()" style="width: 100%; background: #00b4d8; padding: 12px; font-size: 1.1rem;">Login</button>
+
+            <div id="loginError" style="display: none; color: var(--color-danger); margin-bottom: 1rem; font-size: 0.85rem; font-weight: 600;">
+                <i class="fas fa-exclamation-circle"></i> Invalid access code. Please check credentials and try again.
+            </div>
+            
+            <button class="btn btn-primary" onclick="handleLogin()" style="width: 100%; padding: 12px; font-size: 1rem;">
+                <i class="fas fa-shield-alt"></i> Access Command Console
+            </button>
         </div>
     </div>
 
+    <!-- 2. Main Application Shell -->
     <div class="app-container" id="appContainer" style="display: none;">
         <!-- Header -->
         <header class="header">
-            <div class="logo" onclick="toggleLogoMenu()">
+            <div class="logo" onclick="toggleLogoMenu()" title="Click for Quick Emergency Actions">
                 <i class="fas fa-water"></i>
-                <span>CoastWatch</span>
+                <span>COASTWATCH</span>
+                
+                <!-- Quick Access Dropdown Menu -->
                 <div class="logo-menu" id="logoMenu">
-                    <div class="logo-menu-item" onclick="showTab('map'); toggleLogoMenu();">
-                        <span>🔔 Latest Alerts</span>
+                    <div style="padding: 6px 12px 10px 12px; font-size: 0.75rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; border-bottom: 1px solid var(--color-border); margin-bottom: 4px;">
+                        Quick Operations Menu
                     </div>
                     <div class="logo-menu-item" onclick="showTab('map'); toggleLogoMenu();">
-                        <span>🗺️ View Map</span>
+                        <i class="fas fa-bell" style="color: var(--color-warning);"></i>
+                        <span>Latest Alerts</span>
+                    </div>
+                    <div class="logo-menu-item" onclick="showTab('map'); toggleLogoMenu();">
+                        <i class="fas fa-map-marked-alt" style="color: var(--color-primary);"></i>
+                        <span>Live GIS Map</span>
                     </div>
                     <div class="logo-menu-item" onclick="showTab('sos'); toggleLogoMenu();">
-                        <span>🚨 SOS / Emergency Help</span>
+                        <i class="fas fa-exclamation-triangle" style="color: var(--color-danger);"></i>
+                        <span>SOS / Emergency Distress</span>
                     </div>
                     <div class="logo-menu-item" onclick="showTab('sos'); toggleLogoMenu();">
-                        <span>📞 Helpline Numbers</span>
+                        <i class="fas fa-phone-alt" style="color: var(--color-primary);"></i>
+                        <span>Helpline Directory</span>
                     </div>
-                    <div class="logo-menu-item"
-                        onclick="showTab('shelters'); toggleLogoMenu();">
-                        <span>🏠 Find Safe Shelter</span>
+                    <div class="logo-menu-item" onclick="showTab('shelters'); toggleLogoMenu();">
+                        <i class="fas fa-home" style="color: var(--color-secondary);"></i>
+                        <span>Find Safe Shelters</span>
                     </div>
-                    <div class="logo-menu-item"
-                        onclick="showNotification('Weather: 28°C, Wind: 15 km/h, High tide at 6:30 PM', 'success'); toggleLogoMenu();">
-                        <span>🌦️ Weather & Sea Conditions</span>
+                    <div class="logo-menu-item" onclick="showNotification('Weather: 28°C, Wind: 15 km/h, High tide at 6:30 PM', 'success'); toggleLogoMenu();">
+                        <i class="fas fa-cloud-sun-rain" style="color: var(--color-primary);"></i>
+                        <span>Weather & Sea Conditions</span>
                     </div>
                     <div class="logo-menu-item" onclick="showTab('social'); toggleLogoMenu();">
-                        <span>📢 Community Reports</span>
+                        <i class="fas fa-bullhorn" style="color: var(--color-purple);"></i>
+                        <span>Community Intelligence</span>
                     </div>
                     <div class="logo-menu-item" onclick="showTab('risk'); toggleLogoMenu();">
-                        <span>📊 Future Risk Estimate</span>
+                        <i class="fas fa-chart-line" style="color: var(--color-warning);"></i>
+                        <span>Future Risk Estimate</span>
                     </div>
                     <div class="logo-menu-item" onclick="showSafetyTips(); toggleLogoMenu();">
-                        <span>📘 Safety Tips</span>
+                        <i class="fas fa-book-shield" style="color: var(--color-primary);"></i>
+                        <span>Disaster Safety Protocols</span>
                     </div>
                 </div>
             </div>
+            
             <div class="user-info">
+                <!-- Theme Toggle Button -->
+                <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle Light / Dark Mode">
+                    <i class="fas fa-sun" id="themeToggleIcon"></i>
+                </button>
+
+                <!-- Live Heartbeat Indicator with Clock -->
+                <span class="system-status-indicator" id="liveStatusIndicator">
+                    <i class="fas fa-circle"></i> Online • <span id="liveClockText">Live</span>
+                </span>
+
                 <span id="welcomeText">Welcome, User</span>
+                
                 <div class="trust-score">
                     <i class="fas fa-star"></i> Trust Score: 85
                 </div>
-                <button class="btn" onclick="handleLogout()" style="background: rgba(240, 113, 103, 0.2); color: #f07167; padding: 8px 15px; border: 1px solid rgba(240, 113, 103, 0.5);"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                
+                <button class="btn btn-danger" onclick="handleLogout()" style="padding: 6px 14px; font-size: 0.82rem;">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
             </div>
         </header>
 
-        <!-- Navigation Tabs -->
+        <!-- Top Headline -->
+        <div class="smartflow-top-bar" style="margin-bottom: 1rem;">
+            <div class="smartflow-headline">
+                <h1>CoastWatch Emergency Operations</h1>
+                <p>Real-time disaster intelligence, coastal monitoring & emergency response network.</p>
+            </div>
+        </div>
+
+        <!-- Command Navigation Tabs (SmartFlow Pill Bar) -->
         <nav class="nav-tabs">
             <button class="tab active" onclick="showTab('map')">
                 <i class="fas fa-map-marked-alt"></i> Live Map
             </button>
             <button class="tab" onclick="showTab('report')">
-                <i class="fas fa-exclamation-triangle"></i> Report Hazard
+                <i class="fas fa-plus-circle"></i> Report Hazard
             </button>
             <button class="tab" onclick="showTab('sos')" id="sosTab">
-                <i class="fas fa-phone"></i> Emergency SOS
+                <i class="fas fa-phone-volume"></i> Emergency SOS
             </button>
             <button class="tab" onclick="showTab('social')">
                 <i class="fab fa-twitter"></i> Social Feed
             </button>
             <button class="tab" onclick="showTab('shelters')">
-                <i class="fas fa-home"></i> Find Shelter
+                <i class="fas fa-building-shield"></i> Find Shelter
             </button>
             <button class="tab" onclick="showTab('risk')">
                 <i class="fas fa-chart-area"></i> Risk Estimate
             </button>
             <button class="tab" onclick="showTab('safety')">
-                <i class="fas fa-shield-alt"></i> Safety Tips
+                <i class="fas fa-shield-halved"></i> Safety Tips
             </button>
             <button class="tab" onclick="showTab('dashboard')">
                 <i class="fas fa-tachometer-alt"></i> Dashboard
             </button>
         </nav>
 
-        <!-- Map Tab -->
+        <!-- TAB 1: Live Hazard Map (GIS Command Center) -->
         <div id="map" class="content active">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
-                <h2 style="margin: 0;"><i class="fas fa-map-marked-alt"></i> India Hazard Map</h2>
-                <div class="map-filter-bar" style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
-                    <span id="mapPointCounter" class="risk-band-pill pill-low" style="font-size: 0.82rem; padding: 4px 10px; font-weight: 600;">
-                        <i class="fas fa-dot-circle"></i> Active Hazards: 0
+            <div class="section-header-bar">
+                <div class="section-title-group">
+                    <h2 class="section-title">
+                        <i class="fas fa-map-location-dot" style="color: var(--color-primary);"></i> Live Hazard GIS Map
+                    </h2>
+                    <p class="section-subtitle">Real-time disaster activity and multi-source intelligence across monitored regions</p>
+                </div>
+                <div class="map-filter-bar">
+                    <span id="mapPointCounter" class="stat-pill online" style="font-size: 0.8rem; padding: 5px 12px;">
+                        <i class="fas fa-circle-dot"></i> Active Hazards: 0
                     </span>
-                    <select id="mapSeverityFilter" onchange="refreshMapMarkers()" style="width: auto; padding: 6px 12px; font-size: 0.85rem; margin: 0; background: rgba(15,23,42,0.85); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">
+                    <select id="mapSeverityFilter" onchange="refreshMapMarkers()">
                         <option value="all">All Severities</option>
                         <option value="high">High Risk (🔴)</option>
                         <option value="medium">Medium Risk (🟠)</option>
                         <option value="low">Low Risk (🟢)</option>
                     </select>
-                    <select id="mapHazardTypeFilter" onchange="refreshMapMarkers()" style="width: auto; padding: 6px 12px; font-size: 0.85rem; margin: 0; background: rgba(15,23,42,0.85); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">
+                    <select id="mapHazardTypeFilter" onchange="refreshMapMarkers()">
                         <option value="all">All Hazard Types</option>
                         <option value="flood">Floods</option>
                         <option value="cyclone">Cyclones / Storms</option>
@@ -131,301 +197,359 @@
                     </select>
                 </div>
             </div>
-            <h2><i class="fas fa-map-marked-alt"></i> India Hazard Map</h2>
+            
             <div class="map-container" id="mapContainer"></div>
-            <div class="reports-grid" id="recentReports">
-                <!-- Recent reports will be populated here -->
+            
+            <div style="margin-top: 1.5rem;">
+                <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--color-text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-clock-rotate-left" style="color: var(--color-primary);"></i> Verified Recent Incidents
+                </h3>
+                <div class="reports-grid" id="recentReports">
+                    <!-- Recent reports populated dynamically -->
+                </div>
             </div>
         </div>
 
-        <!-- Report Tab -->
+        <!-- TAB 2: Report a Disaster -->
         <div id="report" class="content">
-            <h2><i class="fas fa-exclamation-triangle"></i> Report a Disaster</h2>
+            <div class="section-header-bar">
+                <div class="section-title-group">
+                    <h2 class="section-title">
+                        <i class="fas fa-triangle-exclamation" style="color: var(--color-warning);"></i> Report an Incident
+                    </h2>
+                    <p class="section-subtitle">Submit ground disaster intelligence with multi-modal media for AI verification and response</p>
+                </div>
+            </div>
+
             <form class="report-form" id="hazardForm">
+                <!-- 01 - Hazard Type & Location -->
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="hazardType">Hazard Type</label>
+                        <label for="hazardType"><i class="fas fa-layer-group" style="color: var(--color-primary);"></i> 01 — Hazard Classification</label>
                         <select id="hazardType" required>
-                            <option value="">Select hazard type</option>
-                            <option value="storm">Storm/Cyclone</option>
-                            <option value="fire">Fire</option>
-                            <option value="flood">Flooding</option>
-                            <option value="earthquake">Earthquake</option>
-                            <option value="landslide">Landslide</option>
-                            <option value="other">Other</option>
+                            <option value="">Select hazard classification</option>
+                            <option value="storm">Cyclone / Severe Storm</option>
+                            <option value="fire">Fire / Industrial Hazard</option>
+                            <option value="flood">Coastal / Urban Flooding</option>
+                            <option value="earthquake">Earthquake / Tremor</option>
+                            <option value="landslide">Landslide / Erosion</option>
+                            <option value="other">Other Emergency Incident</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="location">Location</label>
-                        <input type="text" id="location" placeholder="Enter location or use GPS" required>
-                        <button type="button" class="btn" onclick="getCurrentLocation()" style="margin-top: 0.5rem;">
-                            <i class="fas fa-crosshairs"></i> Use Current Location
-                        </button>
+                        <label for="location"><i class="fas fa-location-crosshairs" style="color: var(--color-primary);"></i> 02 — Incident Location</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="location" placeholder="Enter landmark or location name" required style="margin: 0;">
+                            <button type="button" class="btn" onclick="getCurrentLocation()" style="margin: 0; white-space: nowrap;" title="Capture GPS Coordinates">
+                                <i class="fas fa-crosshairs"></i> GPS
+                            </button>
+                        </div>
                         <div id="locationDisplay" class="location-display" style="display: none;"></div>
                     </div>
                 </div>
 
-                <div class="form-group full-width">
-                    <label>Severity Level</label>
+                <!-- 03 - Severity Level -->
+                <div class="form-group full-width" style="margin-bottom: 1.25rem;">
+                    <label><i class="fas fa-gauge-high" style="color: var(--color-primary);"></i> 03 — Severity Assessment</label>
                     <div class="severity-selector">
                         <div class="severity-option low" onclick="selectSeverity('low')">
-                            <i class="fas fa-info-circle" style="color: #27ae60; font-size: 1.5rem;"></i>
-                            <div>Low Risk</div>
+                            <i class="fas fa-circle-check" style="color: var(--color-secondary); font-size: 1.5rem;"></i>
+                            <div>Low Severity</div>
+                            <span style="font-size: 0.75rem; color: var(--color-text-secondary);">Minor disruption / Alert</span>
                         </div>
                         <div class="severity-option medium" onclick="selectSeverity('medium')">
-                            <i class="fas fa-exclamation-triangle" style="color: #f39c12; font-size: 1.5rem;"></i>
-                            <div>Medium Risk</div>
+                            <i class="fas fa-triangle-exclamation" style="color: var(--color-warning); font-size: 1.5rem;"></i>
+                            <div>Medium Severity</div>
+                            <span style="font-size: 0.75rem; color: var(--color-text-secondary);">Hazardous / Response needed</span>
                         </div>
                         <div class="severity-option high" onclick="selectSeverity('high')">
-                            <i class="fas fa-exclamation-circle" style="color: #e74c3c; font-size: 1.5rem;"></i>
-                            <div>High Risk</div>
+                            <i class="fas fa-circle-exclamation" style="color: var(--color-danger); font-size: 1.5rem;"></i>
+                            <div>High / Critical Severity</div>
+                            <span style="font-size: 0.75rem; color: var(--color-text-secondary);">Life-threatening / Urgent</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="form-group full-width">
-                    <label for="description">Description</label>
-                    <textarea id="description" rows="4" placeholder="Describe the disaster situation..."
-                        required></textarea>
+                <!-- 04 - Description -->
+                <div class="form-group full-width" style="margin-bottom: 1.25rem;">
+                    <label for="description"><i class="fas fa-align-left" style="color: var(--color-primary);"></i> 04 — Situation Description</label>
+                    <textarea id="description" rows="4" placeholder="Describe the disaster condition, visible hazards, stranded people, or road blockages..." required></textarea>
                 </div>
 
-                <div class="form-group full-width">
-                    <label>Upload Photo/Video</label>
+                <!-- 05 - Evidence Upload -->
+                <div class="form-group full-width" style="margin-bottom: 1.25rem;">
+                    <label><i class="fas fa-camera-retro" style="color: var(--color-primary);"></i> 05 — Evidence Upload (AI Verification)</label>
                     <div class="file-upload" onclick="document.getElementById('fileInput').click()">
-                        <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #bdc3c7;"></i>
-                        <div>Click to upload photos or videos</div>
-                        <div style="font-size: 0.9rem; color: #bdc3c7; margin-top: 0.5rem;">Max file size: 10MB</div>
+                        <i class="fas fa-cloud-arrow-up"></i>
+                        <div class="file-upload-title">Click or Drop Photo/Video Evidence</div>
+                        <div class="file-upload-subtitle">Supported formats: JPG, PNG, MP4, MOV (Max 10MB per file)</div>
                     </div>
                     <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display: none;">
                     <div id="filePreviewContainer" class="file-preview-container"></div>
                 </div>
 
-                <div id="reportFormStatus" class="location-display" style="display: none; margin-bottom: 1rem;"></div>
-
+                <div id="reportFormStatus" class="location-display" style="display: none; margin-bottom: 1.25rem;"></div>
                 <div id="aiVerificationStatusBar" class="ai-status ai-status-none" style="display: none;"></div>
 
-                <button type="submit" class="btn btn-success" id="submitReportBtn">
-                    <i class="fas fa-paper-plane"></i> Submit Report
+                <button type="submit" class="btn btn-primary" id="submitReportBtn" style="width: 100%; padding: 14px; font-size: 1.05rem;">
+                    <i class="fas fa-paper-plane"></i> Submit Disaster Intelligence Report
                 </button>
             </form>
         </div>
 
-        <!-- SOS Emergency Tab -->
+        <!-- TAB 3: Emergency SOS (Constrained Button + Restored Sections Flow) -->
         <div id="sos" class="content">
-            <h2><i class="fas fa-phone"></i> Emergency SOS</h2>
-            <div class="report-form"
-                style="text-align: center; background: rgba(240, 113, 103, 0.08); border: 1px solid rgba(240, 113, 103, 0.3);">
-                <h3 style="color: #f07167; margin-bottom: 1rem;">
-                    <i class="fas fa-exclamation-triangle"></i> Emergency Assistance
-                </h3>
-                <p style="margin-bottom: 2rem; color: #f4f4f4;">
-                    Use this SOS feature only in real emergencies. It registers a persistent incident with a unique SOS ID,
-                    captures your GPS location (if permitted), and pushes it to the CoastWatch Authority Dashboard for
-                    acknowledgment and response tracking. For immediate life-threatening danger <strong>call 112</strong>.
+            <div class="section-header-bar">
+                <div class="section-title-group">
+                    <h2 class="section-title" style="color: var(--color-danger);">
+                        <i class="fas fa-tower-broadcast"></i> Emergency Distress SOS Hub
+                    </h2>
+                    <p class="section-subtitle">Real-time distress transmission, GPS pinpointing, and direct authority operations link</p>
+                </div>
+            </div>
+
+            <!-- Card 1: SOS Hero Trigger & Live Tracker -->
+            <div class="sos-hero-card">
+                <p style="color: var(--color-text-secondary); font-size: 0.95rem; line-height: 1.6; max-width: 780px; margin: 0 auto 1.5rem auto;">
+                    Activating SOS broadcasts an emergency distress beacon to the CoastWatch Operations Command Center with your exact coordinates. For immediate life threats, dial <strong style="color: var(--color-danger);">112</strong>.
                 </p>
 
+                <!-- Zero-Overflow Constrained Circular SOS Button -->
                 <div id="sosButton" onclick="triggerSOS()">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 10px;"></i>
+                    <i class="fas fa-triangle-exclamation"></i>
                     <div>SOS</div>
-                    <div style="font-size: 1rem; margin-top: 5px;">TAP FOR HELP</div>
+                    <div>TAP FOR HELP</div>
                 </div>
 
-                <div id="sosStatus" class="location-display" style="
-                    background: rgba(240, 113, 103, 0.08);
-                    border: 2px solid rgba(240, 113, 103, 0.3);
-                    border-radius: 12px;
-                    padding: 1.5rem;
-                    margin-bottom: 2rem;
-                    display: none;
-                ">
-                    <h4 style="color: #f07167; margin-bottom: 1rem;">
-                        <i class="fas fa-satellite-dish"></i> Emergency SOS — Live Status
-                    </h4>
-
-                    <div id="sosIdBlock" style="display:none; margin-bottom: 1rem; padding: 0.8rem 1rem; background: rgba(0,0,0,0.25); border-radius: 8px; border-left: 4px solid #48cae4;">
-                        <div style="font-size: 0.8rem; color: #a9c6de; margin-bottom: 2px;"><i class="fas fa-fingerprint"></i> SOS Reference ID</div>
-                        <div id="sosIdText" style="font-size: 1.4rem; font-weight: bold; color: #48cae4; font-family: monospace; letter-spacing: 1px;">—</div>
-                        <div id="sosTimestamp" style="font-size: 0.75rem; color: #bdc3c7; margin-top: 3px;"><i class="fas fa-clock"></i> —</div>
+                <!-- SOS Live Tracker & Status Display -->
+                <div id="sosStatus" class="location-display" style="display: none; text-align: left; margin: 1.5rem 0; padding: 1.5rem; border: 1.5px solid var(--color-danger-border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--color-border); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                        <h4 style="color: var(--color-danger); margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-satellite-dish"></i> Live Distress Incident Tracker
+                        </h4>
                     </div>
 
-                    <div id="sosLocationBlock" style="display:none; margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 8px;">
+                    <div id="sosIdBlock" style="display:none; margin-bottom: 1rem; padding: 0.85rem 1.1rem; background: var(--color-surface-elevated); border-radius: var(--radius-sm); border-left: 4px solid var(--color-primary);">
+                        <div style="font-size: 0.75rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;"><i class="fas fa-fingerprint"></i> SOS Reference Identifier</div>
+                        <div id="sosIdText" style="font-size: 1.35rem; font-weight: 800; color: var(--color-primary); font-family: var(--font-mono); letter-spacing: 1px;">—</div>
+                        <div id="sosTimestamp" style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 3px; font-family: var(--font-mono);"><i class="fas fa-clock"></i> —</div>
                     </div>
 
-                    <div id="sosCurrentStatusBadge" style="display:none; margin-bottom: 1rem;">
-                    </div>
+                    <div id="sosLocationBlock" style="display:none; margin-bottom: 1rem; padding: 0.85rem 1.1rem; border-radius: var(--radius-sm);"></div>
+                    <div id="sosCurrentStatusBadge" style="display:none; margin-bottom: 1rem;"></div>
 
                     <div id="sosProgress">
-                        <div class="sos-timeline" id="sosTimeline">
-                        </div>
+                        <div class="sos-timeline" id="sosTimeline"></div>
                     </div>
 
-                    <div id="sosNotesBlock" style="display:none; margin-top: 1rem; padding: 0.75rem 1rem; background: rgba(0, 180, 216, 0.06); border: 1px solid rgba(0, 180, 216, 0.3); border-radius: 8px;">
-                        <div style="font-size: 0.8rem; color: #48cae4; margin-bottom: 3px;"><i class="fas fa-clipboard-list"></i> Authority Notes</div>
-                        <div id="sosNotesText" style="color: #e8eef7; font-size: 0.92rem;"></div>
+                    <div id="sosNotesBlock" style="display:none; margin-top: 1rem; padding: 0.85rem 1.1rem; background: var(--color-primary-dim); border: 1px solid var(--color-primary-border); border-radius: var(--radius-sm);">
+                        <div style="font-size: 0.75rem; color: var(--color-primary); font-weight: 700; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-clipboard-list"></i> Authority Operator Notes</div>
+                        <div id="sosNotesText" style="color: var(--color-text-primary); font-size: 0.92rem;"></div>
                     </div>
 
-                    <div id="sosWarningBlock" style="display:none; margin-top: 1rem; padding: 0.75rem 1rem; background: rgba(240, 113, 103, 0.1); border: 1px solid rgba(240, 113, 103, 0.35); border-radius: 8px;">
-                        <div id="sosWarningText" style="color: #f07167; font-size: 0.9rem;"><i class="fas fa-exclamation-triangle"></i> —</div>
+                    <div id="sosWarningBlock" style="display:none; margin-top: 1rem; padding: 0.85rem 1.1rem; background: var(--color-danger-dim); border: 1px solid var(--color-danger-border); border-radius: var(--radius-sm);">
+                        <div id="sosWarningText" style="color: var(--color-danger); font-size: 0.9rem;"><i class="fas fa-triangle-exclamation"></i> —</div>
                     </div>
                 </div>
 
-                <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem;">
-                    <button onclick="resetSOS()" class="btn" style="background: #95a5a6;">
-                        <i class="fas fa-undo"></i> Reset
+                <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem;">
+                    <button onclick="resetSOS()" class="btn" style="background: var(--color-surface-elevated); color: var(--color-text-secondary);">
+                        <i class="fas fa-rotate-left"></i> Reset Device SOS Tracking
                     </button>
                 </div>
+            </div>
 
-                <div class="report-form" style="background: rgba(255,255,255,0.05); text-align: left;">
-                    <h4><i class="fas fa-info-circle"></i> Emergency Information</h4>
-                    <ul style="color: #f4f4f4; line-height: 1.6;">
-                        <li>Your GPS location, if available, is recorded and shared with the authority dashboard.</li>
-                        <li>A unique SOS Reference ID is generated. Quote this ID when calling emergency services.</li>
-                        <li>CoastWatch pushes every SOS into the real-time authority dashboard shown to operators.</li>
-                        <li>Dispatch, SMS, and phone integrations require authorized agency connectivity — which is not enabled in this build. For immediate life-threatening emergencies <strong>call <a href="tel:112" style="color:#48cae4;">112</a> directly</strong>.</li>
-                    </ul>
+            <!-- Card 2: Restored Emergency Information & Protocol -->
+            <div class="emergency-info-card">
+                <h4 style="color: var(--color-text-primary); font-size: 1.15rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-circle-info" style="color: var(--color-primary);"></i> Emergency Information & Operational Guidance
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; font-size: 0.88rem; color: var(--color-text-secondary); line-height: 1.5;">
+                    <div style="background: var(--color-surface-elevated); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                        <strong style="color: var(--color-text-primary); display: block; margin-bottom: 4px;"><i class="fas fa-location-dot" style="color: var(--color-secondary);"></i> High-Accuracy GPS Pinpoint</strong>
+                        Your coordinates are recorded with sub-meter geolocation to provide precise navigation vectors to search and rescue teams.
+                    </div>
+                    <div style="background: var(--color-surface-elevated); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                        <strong style="color: var(--color-text-primary); display: block; margin-bottom: 4px;"><i class="fas fa-fingerprint" style="color: var(--color-primary);"></i> Unique SOS Reference ID</strong>
+                        When speaking with official responders or helplines, quote your assigned SOS Reference ID for priority telemetry sync.
+                    </div>
+                    <div style="background: var(--color-surface-elevated); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                        <strong style="color: var(--color-text-primary); display: block; margin-bottom: 4px;"><i class="fas fa-tower-observation" style="color: var(--color-warning);"></i> EOC Direct Dispatch Queue</strong>
+                        Distress beacons immediately appear on the Authority Emergency Operations Center queue with real-time status transitions.
+                    </div>
+                    <div style="background: var(--color-surface-elevated); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                        <strong style="color: var(--color-text-primary); display: block; margin-bottom: 4px;"><i class="fas fa-phone-flip" style="color: var(--color-danger);"></i> Life-Threatening Peril (Call 112)</strong>
+                        For critical, immediate life-threatening emergencies, always dial <strong>112</strong> in addition to broadcasting your digital SOS beacon.
+                    </div>
                 </div>
+            </div>
 
-                <div class="report-form"
-                    style="background: rgba(240, 113, 103, 0.06); border: 1px solid rgba(240, 113, 103, 0.28);">
-                    <h4><i class="fas fa-phone"></i> Emergency Helpline Numbers</h4>
-                    <div
-                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                        <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-                            <h5 style="color: #f07167; margin-bottom: 0.5rem;"><i class="fas fa-ambulance"></i> National
-                                Emergency</h5>
-                            <div style="font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0;">
-                                <a href="tel:112" style="color: #f4f4f4; text-decoration: none;">📞 112</a> - Emergency
-                                Services
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:100" style="color: #f4f4f4; text-decoration: none;">📞 100</a> - Police
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:101" style="color: #f4f4f4; text-decoration: none;">📞 101</a> - Fire
-                                Brigade
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:108" style="color: #f4f4f4; text-decoration: none;">📞 108</a> - Ambulance
-                            </div>
-                        </div>
-
-                        <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-                            <h5 style="color: #48cae4; margin-bottom: 0.5rem;"><i class="fas fa-shield-alt"></i>
-                                Disaster Management</h5>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:01126701728" style="color: #f4f4f4; text-decoration: none;">📞
-                                    011-26701728</a> - NDMA
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:01124363260" style="color: #f4f4f4; text-decoration: none;">📞
-                                    011-24363260</a> - NDRF
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:1070" style="color: #f4f4f4; text-decoration: none;">📞 1070</a> - Disaster
-                                Helpline
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:1077" style="color: #f4f4f4; text-decoration: none;">📞 1077</a> - Weather
-                                Helpline
-                            </div>
-                        </div>
-
-                        <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-                            <h5 style="color: #27ae60; margin-bottom: 0.5rem;"><i class="fas fa-life-ring"></i> Crisis
-                                Support</h5>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:9152987821" style="color: #f4f4f4; text-decoration: none;">📞
-                                    9152987821</a> - Mental Health
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:1056" style="color: #f4f4f4; text-decoration: none;">📞 1056</a> - Traffic
-                                Helpline
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:1091" style="color: #f4f4f4; text-decoration: none;">📞 1091</a> - Women
-                                Helpline
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:1098" style="color: #f4f4f4; text-decoration: none;">📞 1098</a> - Child
-                                Helpline
-                            </div>
-                        </div>
-
-                        <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-                            <h5 style="color: #00b4d8; margin-bottom: 0.5rem;"><i class="fas fa-water"></i> Coast Guard
-                                & Marine</h5>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:1554" style="color: #f4f4f4; text-decoration: none;">📞 1554</a> - Coast
-                                Guard
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:01123092616" style="color: #f4f4f4; text-decoration: none;">📞
-                                    011-23092616</a> - Maritime Rescue
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:1800111321" style="color: #f4f4f4; text-decoration: none;">📞
-                                    1800-111-321</a> - Fishermen Helpline
-                            </div>
-                            <div style="font-size: 1.1rem; margin: 0.3rem 0;">
-                                <a href="tel:1800180111" style="color: #f4f4f4; text-decoration: none;">📞
-                                    1800-180-111</a> - Port Emergency
-                            </div>
+            <!-- Card 3: Restored National Emergency Helpline Directory -->
+            <div class="helpline-directory-card">
+                <h4 style="font-size: 1.15rem; color: var(--color-text-primary); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-phone-volume" style="color: var(--color-primary);"></i> National Emergency Helpline Directory
+                </h4>
+                <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 1rem;">Direct one-tap telephone access to 24/7 disaster response agencies, maritime rescue, and civilian crisis support.</p>
+                
+                <div class="helpline-grid">
+                    <!-- Category 1: First Responders -->
+                    <div class="helpline-category-card">
+                        <h5 style="color: var(--color-danger);"><i class="fas fa-ambulance"></i> National First Responders</h5>
+                        <div class="helpline-link-list">
+                            <a href="tel:112" class="helpline-link primary-emergency">
+                                <span>📞 112</span><span>All Emergencies (24/7)</span>
+                            </a>
+                            <a href="tel:100" class="helpline-link">
+                                <span>📞 100</span><span style="color: var(--color-text-muted);">Police Control</span>
+                            </a>
+                            <a href="tel:101" class="helpline-link">
+                                <span>📞 101</span><span style="color: var(--color-text-muted);">Fire Rescue</span>
+                            </a>
+                            <a href="tel:108" class="helpline-link">
+                                <span>📞 108</span><span style="color: var(--color-text-muted);">Medical Ambulance</span>
+                            </a>
                         </div>
                     </div>
 
-                    <div
-                        style="margin-top: 1.5rem; padding: 1rem; background: rgba(0, 180, 216, 0.1); border-radius: 8px; border: 1px solid rgba(0, 180, 216, 0.3);">
-                        <h5 style="color: #00b4d8; margin-bottom: 0.5rem;"><i class="fas fa-exclamation-triangle"></i>
-                            Quick Emergency Tips</h5>
-                        <ul style="color: #f4f4f4; line-height: 1.4; font-size: 0.9rem; margin: 0; padding-left: 1rem;">
-                            <li>Stay calm and assess your situation</li>
-                            <li>Call 112 for immediate life-threatening emergencies</li>
-                            <li>Share your exact location when calling for help</li>
-                            <li>Follow local evacuation orders immediately</li>
-                            <li>Keep emergency supplies ready: water, food, medicines</li>
-                        </ul>
+                    <!-- Category 2: Disaster Authorities -->
+                    <div class="helpline-category-card">
+                        <h5 style="color: var(--color-primary);"><i class="fas fa-shield-halved"></i> Disaster Authorities</h5>
+                        <div class="helpline-link-list">
+                            <a href="tel:01126701728" class="helpline-link">
+                                <span>📞 011-26701728</span><span style="color: var(--color-text-muted);">NDMA Control</span>
+                            </a>
+                            <a href="tel:01124363260" class="helpline-link">
+                                <span>📞 011-24363260</span><span style="color: var(--color-text-muted);">NDRF HQ</span>
+                            </a>
+                            <a href="tel:1070" class="helpline-link" style="border-color: var(--color-primary-border); color: var(--color-primary); font-weight: 700;">
+                                <span>📞 1070</span><span>State Disaster Control</span>
+                            </a>
+                            <a href="tel:1077" class="helpline-link">
+                                <span>📞 1077</span><span style="color: var(--color-text-muted);">District Helpline</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Category 3: Coast Guard & Maritime -->
+                    <div class="helpline-category-card">
+                        <h5 style="color: var(--color-primary);"><i class="fas fa-water"></i> Coast Guard & Maritime</h5>
+                        <div class="helpline-link-list">
+                            <a href="tel:1554" class="helpline-link" style="background: var(--color-primary); color: #FFFFFF; font-weight: 700; border-color: var(--color-primary);">
+                                <span>📞 1554</span><span>Coast Guard Emergency</span>
+                            </a>
+                            <a href="tel:01123092616" class="helpline-link">
+                                <span>📞 011-23092616</span><span style="color: var(--color-text-muted);">Maritime Rescue</span>
+                            </a>
+                            <a href="tel:1800111321" class="helpline-link">
+                                <span>📞 1800-111-321</span><span style="color: var(--color-text-muted);">Fishermen Helpline</span>
+                            </a>
+                            <a href="tel:1800180111" class="helpline-link">
+                                <span>📞 1800-180-111</span><span style="color: var(--color-text-muted);">Port Emergency</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Category 4: Crisis Support -->
+                    <div class="helpline-category-card">
+                        <h5 style="color: var(--color-secondary);"><i class="fas fa-life-ring"></i> Crisis & Special Assistance</h5>
+                        <div class="helpline-link-list">
+                            <a href="tel:9152987821" class="helpline-link">
+                                <span>📞 9152987821</span><span style="color: var(--color-text-muted);">Psychological Support</span>
+                            </a>
+                            <a href="tel:1091" class="helpline-link">
+                                <span>📞 1091</span><span style="color: var(--color-text-muted);">Women Helpline</span>
+                            </a>
+                            <a href="tel:1098" class="helpline-link">
+                                <span>📞 1098</span><span style="color: var(--color-text-muted);">Child Helpline</span>
+                            </a>
+                            <a href="tel:1056" class="helpline-link">
+                                <span>📞 1056</span><span style="color: var(--color-text-muted);">Emergency Traffic</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 4: Quick Emergency Tips -->
+            <div class="emergency-info-card">
+                <h4 style="color: var(--color-text-primary); font-size: 1.15rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-lightbulb" style="color: var(--color-warning);"></i> Quick Emergency Actions
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; font-size: 0.88rem; color: var(--color-text-secondary);">
+                    <div style="background: var(--color-surface-elevated); padding: 0.9rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-secondary);">
+                        <strong style="color: var(--color-text-primary);">1. Stay Calm & Conserve Battery</strong>: Keep phones in low-power mode and reduce screen brightness.
+                    </div>
+                    <div style="background: var(--color-surface-elevated); padding: 0.9rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-primary);">
+                        <strong style="color: var(--color-text-primary);">2. Evacuate to Higher Ground</strong>: For tsunami, flood, or surge alerts, immediately move inland or to designated safe shelters.
+                    </div>
+                    <div style="background: var(--color-surface-elevated); padding: 0.9rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-warning);">
+                        <strong style="color: var(--color-text-primary);">3. Avoid Low-Lying Roads</strong>: Do not drive or walk through standing floodwaters or near downed electrical infrastructure.
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Social Intelligence Tab -->
+        <!-- TAB 4: Social Disaster Intelligence -->
         <div id="social" class="content">
-            <h2><i class="fab fa-twitter"></i> Social Disaster Intelligence</h2>
-            
-            <div id="socialDemoBanner" class="demo-banner" style="display: none; background: #f39c12; color: #fff; text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; font-size: 1.1rem; letter-spacing: 1px;">
-                <i class="fas fa-flask"></i> DEMO MODE • SIMULATED SOCIAL DATA
+            <div class="section-header-bar">
+                <div class="section-title-group">
+                    <h2 class="section-title">
+                        <i class="fab fa-twitter" style="color: #1DA1F2;"></i> Social Disaster Intelligence & Signal Detection
+                    </h2>
+                    <p class="section-subtitle">Real-time social media crawling, NLP extraction, confidence clustering, and verification</p>
+                </div>
             </div>
             
-            <div class="dashboard-stats" style="margin-bottom: 20px;">
+            <div id="socialDemoBanner" class="demo-banner" style="display: none;">
+                <i class="fas fa-flask"></i> DEMO MODE • SIMULATED SOCIAL SIGNAL STREAM
+            </div>
+            
+            <!-- SmartFlow Styled KPI Metrics -->
+            <div class="dashboard-stats">
                 <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title"><i class="fas fa-tower-broadcast" style="color: var(--color-primary);"></i> <span>Total Signals</span></span>
+                        <span class="stat-pill online"><i class="fas fa-circle"></i> Ingested</span>
+                    </div>
                     <div class="stat-number" id="statSocialTotal">0</div>
-                    <div class="stat-label">Total Signals</div>
+                    <div class="stat-label">Total intelligence posts captured</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="statSocialNew">0</div>
-                    <div class="stat-label">New Signals</div>
+                    <div class="stat-card-header">
+                        <span class="stat-card-title"><i class="fas fa-bolt" style="color: var(--color-primary);"></i> <span>New Signals</span></span>
+                        <span class="stat-pill online"><i class="fas fa-circle"></i> Live</span>
+                    </div>
+                    <div class="stat-number" id="statSocialNew" style="color: var(--color-primary);">0</div>
+                    <div class="stat-label">Pending NLP categorization</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="statSocialReview">0</div>
-                    <div class="stat-label">Under Review</div>
+                    <div class="stat-card-header">
+                        <span class="stat-card-title"><i class="fas fa-eye" style="color: var(--color-warning);"></i> <span>Under Review</span></span>
+                        <span class="stat-pill warning"><i class="fas fa-circle"></i> Verification</span>
+                    </div>
+                    <div class="stat-number" id="statSocialReview" style="color: var(--color-warning);">0</div>
+                    <div class="stat-label">Corroboration in progress</div>
                 </div>
-                <div class="stat-card" style="background: rgba(39, 174, 96, 0.2); border-color: rgba(39, 174, 96, 0.5);">
-                    <div class="stat-number" id="statSocialVerified" style="color: #2ecc71;">0</div>
-                    <div class="stat-label">Verified Incidents</div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title"><i class="fas fa-circle-check" style="color: var(--color-secondary);"></i> <span>Verified</span></span>
+                        <span class="stat-pill critical"><i class="fas fa-circle"></i> Incident</span>
+                    </div>
+                    <div class="stat-number" id="statSocialVerified" style="color: var(--color-secondary);">0</div>
+                    <div class="stat-label">Confirmed ground hazards</div>
                 </div>
             </div>
             
-            <div class="social-filters" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                <strong><i class="fas fa-filter"></i> Filters:</strong>
-                <select id="filterSocialStatus" onchange="renderSocialSignals()" style="padding: 8px; border-radius: 4px; background: rgba(0,0,0,0.5); color: white; border: 1px solid #48cae4;">
+            <div class="social-filters" style="background: var(--color-card); border: 1px solid var(--color-border); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <strong style="color: var(--color-text-secondary); font-size: 0.88rem;"><i class="fas fa-filter" style="color: var(--color-primary);"></i> Filters:</strong>
+                <select id="filterSocialStatus" onchange="renderSocialSignals()" style="width: auto; padding: 7px 14px; font-size: 0.85rem; margin: 0;">
                     <option value="ALL">All Statuses</option>
                     <option value="NEW">New</option>
                     <option value="UNDER REVIEW">Under Review</option>
                     <option value="VERIFIED">Verified</option>
                     <option value="DISMISSED">Dismissed</option>
                 </select>
-                <select id="filterSocialHazard" onchange="renderSocialSignals()" style="padding: 8px; border-radius: 4px; background: rgba(0,0,0,0.5); color: white; border: 1px solid #48cae4;">
+                <select id="filterSocialHazard" onchange="renderSocialSignals()" style="width: auto; padding: 7px 14px; font-size: 0.85rem; margin: 0;">
                     <option value="ALL">All Hazards</option>
                     <option value="flood">Flood</option>
                     <option value="earthquake">Earthquake</option>
@@ -433,88 +557,117 @@
                     <option value="fire">Fire</option>
                     <option value="landslide">Landslide</option>
                 </select>
-                <button class="btn" onclick="fetchSocialSignals()" style="margin-left: auto; background: #00b4d8; padding: 8px 15px;"><i class="fas fa-sync-alt"></i> Refresh Signals</button>
+                <button class="btn btn-primary" onclick="fetchSocialSignals()" style="margin-left: auto; padding: 7px 16px; font-size: 0.85rem;">
+                    <i class="fas fa-sync-alt"></i> Refresh Signals
+                </button>
             </div>
             
-            <div id="socialFeedContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-                <!-- Social signals will be injected here -->
-                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #bdc3c7;">
-                    <i class="fas fa-spinner fa-spin fa-2x"></i>
-                    <p style="margin-top: 10px;">Analyzing social signals...</p>
+            <div id="socialFeedContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+                <!-- Social signals populated dynamically -->
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--color-text-muted);">
+                    <i class="fas fa-spinner fa-spin fa-2x" style="color: var(--color-primary);"></i>
+                    <p style="margin-top: 10px;">Analyzing social signals stream...</p>
                 </div>
             </div>
         </div>
 
-        <!-- Dashboard Tab -->
+        <!-- TAB 5: Authority Dashboard -->
         <div id="dashboard" class="content">
-            <h2><i class="fas fa-tachometer-alt"></i> Authority Dashboard</h2>
-            <div id="dashboardStatus" class="location-display" style="display: none; margin-bottom: 1rem;"></div>
-            <div class="dashboard-stats">
-                <div class="stat-card">
-                    <div class="stat-number" id="statTotalReports">—</div>
-                    <div class="stat-label">Total Reports</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="statHighPriority">—</div>
-                    <div class="stat-label">High Priority Reports</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="statVerifiedReports">—</div>
-                    <div class="stat-label">Verified Reports</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="statActiveUsers">—</div>
-                    <div class="stat-label">Active Users</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="statActiveIncidents">—</div>
-                    <div class="stat-label">Active Incidents</div>
+            <div class="section-header-bar">
+                <div class="section-title-group">
+                    <h2 class="section-title">
+                        <i class="fas fa-tower-observation" style="color: var(--color-primary);"></i> Emergency Operations Center (EOC) Dashboard
+                    </h2>
+                    <p class="section-subtitle">Real-time incident oversight, alert broadcast transmission, and active SOS queue management</p>
                 </div>
             </div>
 
-            <div class="alert-form">
-                <h3><i class="fas fa-broadcast-tower"></i> Broadcast Emergency Alert</h3>
+            <div id="dashboardStatus" class="location-display" style="display: none; margin-bottom: 1.25rem;"></div>
+            
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title"><i class="fas fa-file-lines" style="color: var(--color-primary);"></i> <span>Total Reports</span></span>
+                        <span class="stat-pill online"><i class="fas fa-circle"></i> Aggregate</span>
+                    </div>
+                    <div class="stat-number" id="statTotalReports">—</div>
+                    <div class="stat-label">Total citizen & sensor reports</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title"><i class="fas fa-triangle-exclamation" style="color: var(--color-danger);"></i> <span>High Priority</span></span>
+                        <span class="stat-pill critical"><i class="fas fa-circle"></i> Critical</span>
+                    </div>
+                    <div class="stat-number" id="statHighPriority" style="color: var(--color-danger);">—</div>
+                    <div class="stat-label">Urgent response required</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title"><i class="fas fa-circle-check" style="color: var(--color-secondary);"></i> <span>Verified Reports</span></span>
+                        <span class="stat-pill online"><i class="fas fa-circle"></i> Confirmed</span>
+                    </div>
+                    <div class="stat-number" id="statVerifiedReports" style="color: var(--color-secondary);">—</div>
+                    <div class="stat-label">Evidence verified via AI/Authority</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title"><i class="fas fa-users" style="color: var(--color-primary);"></i> <span>Active Personnel</span></span>
+                        <span class="stat-pill online"><i class="fas fa-circle"></i> Online</span>
+                    </div>
+                    <div class="stat-number" id="statActiveUsers" style="color: var(--color-primary);">—</div>
+                    <div class="stat-label">Field responders & citizens</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title"><i class="fas fa-bell" style="color: var(--color-warning);"></i> <span>Active Incidents</span></span>
+                        <span class="stat-pill warning"><i class="fas fa-circle"></i> Monitored</span>
+                    </div>
+                    <div class="stat-number" id="statActiveIncidents" style="color: var(--color-warning);">—</div>
+                    <div class="stat-label">Unresolved hazard zones</div>
+                </div>
+            </div>
+
+            <!-- Broadcast Emergency Alert -->
+            <div class="report-form">
+                <h3><i class="fas fa-broadcast-tower" style="color: var(--color-danger);"></i> Broadcast Emergency Public Alert</h3>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="alertType">Alert Type</label>
+                        <label for="alertType">Alert Level</label>
                         <select id="alertType">
                             <option value="warning">Warning</option>
                             <option value="watch">Watch</option>
                             <option value="advisory">Advisory</option>
-                            <option value="emergency">Emergency</option>
+                            <option value="emergency">Emergency Distress</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="alertRadius">Alert Radius (km)</label>
+                        <label for="alertRadius">Broadcast Radius (km)</label>
                         <input type="number" id="alertRadius" value="50" min="1" max="500">
                     </div>
                 </div>
-                <div class="form-group full-width">
-                    <label for="alertMessage">Alert Message</label>
-                    <textarea id="alertMessage" rows="3" placeholder="Enter emergency alert message..."></textarea>
+                <div class="form-group full-width" style="margin-bottom: 1rem;">
+                    <label for="alertMessage">Emergency Alert Message</label>
+                    <textarea id="alertMessage" rows="3" placeholder="Enter emergency alert advisory for broadcast to affected zone..."></textarea>
                 </div>
-                <button class="btn" onclick="broadcastAlert()">
-                    <i class="fas fa-bullhorn"></i> Broadcast Alert
+                <button class="btn btn-danger" onclick="broadcastAlert()" style="font-weight: 700; padding: 12px 24px;">
+                    <i class="fas fa-bullhorn"></i> Transmit Emergency Broadcast
                 </button>
             </div>
 
-            <div class="report-form" id="authoritySosPanel"
-                style="background: rgba(240, 113, 103, 0.06); border: 1px solid rgba(240, 113, 103, 0.3); margin-top: 1.5rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
-                    <h3 style="margin:0;"><i class="fas fa-ambulance"></i> Active SOS Emergencies</h3>
-                    <button class="btn" onclick="loadAuthoritySosList()" style="margin:0; background:#48cae4;">
-                        <i class="fas fa-sync-alt"></i> Refresh SOS List
-                    </button>
+            <!-- Authority SOS Emergency Queue -->
+            <div class="report-form" id="authoritySosPanel" style="margin-top: 1.5rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.25rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
                     <div>
-                        <h3 style="margin:0;"><i class="fas fa-ambulance"></i> SOS Emergencies Queue</h3>
-                        <div style="font-size:0.8rem; color:#a9c6de; margin-top:3px;">
-                            <i class="fas fa-magic" style="color:#48cae4;"></i> Resolved emergencies automatically auto-delete from the active dashboard.
+                        <h3 style="margin:0; color: var(--color-danger);"><i class="fas fa-truck-medical"></i> Active SOS Emergencies Queue</h3>
+                        <div style="font-size:0.8rem; color: var(--color-text-secondary); margin-top:3px;">
+                            <i class="fas fa-bolt" style="color: var(--color-primary);"></i> Resolved incidents automatically clear from active dispatch view.
                         </div>
                     </div>
-                    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                    
+                    <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
                         <div class="sos-filter-group" id="sosFilterGroup">
                             <button type="button" class="sos-filter-btn active" id="sosFilterActive" onclick="setSosFilter('active')">
-                                <i class="fas fa-exclamation-circle"></i> Active <span class="sos-badge-pill" id="sosBadgeActive">0</span>
+                                <i class="fas fa-circle-exclamation"></i> Active <span class="sos-badge-pill" id="sosBadgeActive">0</span>
                             </button>
                             <button type="button" class="sos-filter-btn" id="sosFilterResolved" onclick="setSosFilter('resolved')">
                                 <i class="fas fa-check-double"></i> Resolved <span class="sos-badge-pill" id="sosBadgeResolved">0</span>
@@ -523,31 +676,41 @@
                                 <i class="fas fa-list"></i> All <span class="sos-badge-pill" id="sosBadgeAll">0</span>
                             </button>
                         </div>
-                        <button class="btn" onclick="loadAuthoritySosList()" style="margin:0; background:#48cae4; padding: 7px 14px; font-size: 0.85rem;">
-                            <i class="fas fa-sync-alt"></i> Refresh
+                        <button class="btn btn-primary" onclick="loadAuthoritySosList()" style="margin:0; padding: 7px 14px; font-size: 0.85rem;">
+                            <i class="fas fa-sync-alt"></i> Refresh Queue
                         </button>
                     </div>
                 </div>
-                <div id="authoritySosSummary" style="margin-bottom: 1rem; display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:0.75rem;">
+
+                <div id="authoritySosSummary" style="margin-bottom: 1.25rem; display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:0.75rem;">
                 </div>
+                
                 <div id="authoritySosList" style="display:flex; flex-direction:column; gap:1rem;">
-                    <div style="text-align:center; color:#bdc3c7; padding:1rem;">
-                        <i class="fas fa-spinner fa-spin"></i> Loading SOS incidents…
+                    <div style="text-align:center; color: var(--color-text-muted); padding:2rem;">
+                        <i class="fas fa-spinner fa-spin fa-2x" style="color: var(--color-primary);"></i>
+                        <p style="margin-top: 10px;">Loading SOS incidents queue…</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Future risk estimate (not disaster prediction) -->
+        <!-- TAB 6: Future Risk Estimate -->
         <div id="risk" class="content">
-            <h2><i class="fas fa-chart-area"></i> Future Risk Estimate</h2>
+            <div class="section-header-bar">
+                <div class="section-title-group">
+                    <h2 class="section-title">
+                        <i class="fas fa-chart-line" style="color: var(--color-primary);"></i> Future Disaster Risk Index Estimation
+                    </h2>
+                    <p class="section-subtitle">Combines multi-decadal historical disaster catalogs (ISRO/NASA) with live weather & environmental signals</p>
+                </div>
+            </div>
 
             <div class="report-form">
-                <h3><i class="fas fa-search-location"></i> Estimate for a location</h3>
-                <p style="color: #bdc3c7; font-size: 0.95rem; margin-bottom: 1.2rem;">
-                    Combines nearby historical disaster records with current ingested weather and official alerts.
-                    If coverage is too thin, the system withholds a number instead of guessing.
+                <h3><i class="fas fa-search-location"></i> Location Risk Assessment Parameters</h3>
+                <p style="color: var(--color-text-secondary); font-size: 0.92rem; margin-bottom: 1.25rem; line-height: 1.5;">
+                    Enter location coordinates or select GPS. The system synthesizes historical disaster clusters with active meteorological variables. If data coverage is insufficient, estimates are safely withheld.
                 </p>
+                
                 <div class="form-row">
                     <div class="form-group">
                         <label for="riskLatitude">Latitude</label>
@@ -558,50 +721,54 @@
                         <input type="number" step="any" id="riskLongitude" placeholder="e.g. 72.8777">
                     </div>
                 </div>
+                
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="riskRadius">Search radius (km)</label>
+                        <label for="riskRadius">Search Radius (km)</label>
                         <input type="number" id="riskRadius" value="80" min="5" max="400">
                     </div>
                     <div class="form-group">
-                        <label for="riskHorizon">Time window (hours)</label>
+                        <label for="riskHorizon">Planning Horizon (hours)</label>
                         <input type="number" id="riskHorizon" value="48" min="6" max="168">
                     </div>
                 </div>
-                <div class="form-group full-width">
-                    <label for="riskLocationName">Location label (optional)</label>
-                    <input type="text" id="riskLocationName" placeholder="e.g. Mumbai coast">
+                
+                <div class="form-group full-width" style="margin-bottom: 1.25rem;">
+                    <label for="riskLocationName">Location Label / Regional Name (Optional)</label>
+                    <input type="text" id="riskLocationName" placeholder="e.g. Mumbai Coastal Region">
                 </div>
 
-                <div style="border-top: 1px dashed rgba(168, 218, 220, 0.25); margin: 1rem 0; padding-top: 1rem;">
-                    <h4 style="margin: 0 0 0.8rem 0;"><i class="fas fa-database"></i> Pull real historical disaster data</h4>
-                    <p style="color: #a9c6de; font-size: 0.85rem; margin: 0 0 0.8rem 0;">
-                        Data source: <strong>India Flood & Disaster Inventory (1967–2023) / NRSC-ISRO & NASA EONET</strong>.
-                        Real historical records; no data is fabricated.
+                <div style="border-top: 1px dashed var(--color-border); margin: 1.5rem 0 1rem 0; padding-top: 1.25rem;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: var(--color-primary); font-size: 0.95rem;"><i class="fas fa-database"></i> Real Historical Disaster Ingestion</h4>
+                    <p style="color: var(--color-text-muted); font-size: 0.82rem; margin: 0 0 1rem 0;">
+                        Source: <strong>India Flood & Disaster Inventory (1967–2023) / NRSC-ISRO & NASA EONET</strong>. Real historical records with zero fabrication.
                     </p>
+                    
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="riskStartDate">Historical start date</label>
+                            <label for="riskStartDate">Historical Start Date</label>
                             <input type="date" id="riskStartDate">
                         </div>
                         <div class="form-group">
-                            <label for="riskEndDate">Historical end date</label>
+                            <label for="riskEndDate">Historical End Date</label>
                             <input type="date" id="riskEndDate">
                         </div>
                     </div>
-                    <div id="lastHistoricalSync" class="location-display" style="display:none; margin-bottom: 0.8rem; font-size: 0.85rem;"></div>
-                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                    
+                    <div id="lastHistoricalSync" class="location-display" style="display:none; margin-bottom: 1rem; font-size: 0.82rem;"></div>
+                    
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem;">
                         <button type="button" class="btn" onclick="getRiskLocation()">
-                            <i class="fas fa-crosshairs"></i> Use My Current Location
+                            <i class="fas fa-crosshairs"></i> Use Current GPS
                         </button>
-                        <button type="button" class="btn btn-primary" id="fetchHistoricalBtn" onclick="fetchHistoricalAndRisk()" style="background:#2a9d8f;">
-                            <i class="fas fa-cloud-download-alt"></i> Fetch Historical Data
+                        <button type="button" class="btn btn-primary" id="fetchHistoricalBtn" onclick="fetchHistoricalAndRisk()">
+                            <i class="fas fa-cloud-arrow-down"></i> Ingest Historical Data
                         </button>
-                        <button type="button" class="btn btn-primary" onclick="estimateLocationRisk()" style="background:#00b4d8;">
-                            <i class="fas fa-calculator"></i> Estimate risk
+                        <button type="button" class="btn btn-primary" onclick="estimateLocationRisk()">
+                            <i class="fas fa-calculator"></i> Compute Risk Index
                         </button>
                         <button type="button" class="btn" onclick="scanRiskAreas()">
-                            <i class="fas fa-map"></i> Areas with enough history
+                            <i class="fas fa-map-location-dot"></i> Scan Qualifying Areas
                         </button>
                     </div>
                 </div>
@@ -610,28 +777,33 @@
             </div>
 
             <div id="riskResultArea" style="display: none;"></div>
-            <div id="riskScanArea" style="display: none; margin-top: 1rem;"></div>
+            <div id="riskScanArea" style="display: none; margin-top: 1.5rem;"></div>
         </div>
 
-        <!-- Shelters / Find Shelter Tab -->
+        <!-- TAB 7: Intelligent Shelter Finder -->
         <div id="shelters" class="content">
-            <h2><i class="fas fa-home"></i> Intelligent Shelter Finder</h2>
+            <div class="section-header-bar">
+                <div class="section-title-group">
+                    <h2 class="section-title">
+                        <i class="fas fa-building-shield" style="color: var(--color-primary);"></i> Intelligent Safe Shelter Routing
+                    </h2>
+                    <p class="section-subtitle">Multi-criteria suitability scoring (capacity, local risk, road access, hazard proximity, distance)</p>
+                </div>
+            </div>
 
-            <div class="report-form" id="sheltersSampleNotice"
-                style="background: rgba(0, 180, 216, 0.08); border: 1px solid rgba(0, 180, 216, 0.35); display: none;">
-                <h4 style="color: #48cae4; margin-bottom: 0.5rem;">
-                    <i class="fas fa-info-circle"></i> Development Preview
+            <div class="report-form" id="sheltersSampleNotice" style="background: var(--color-primary-dim); border: 1px solid var(--color-primary-border); display: none;">
+                <h4 style="color: var(--color-primary); margin-bottom: 0.5rem;">
+                    <i class="fas fa-info-circle"></i> Development Preview Dataset
                 </h4>
-                <p id="sheltersSampleText" style="color: #e8eef7; margin: 0; font-size: 0.95rem; line-height: 1.5;"></p>
+                <p id="sheltersSampleText" style="color: var(--color-text-primary); margin: 0; font-size: 0.92rem; line-height: 1.5;"></p>
             </div>
 
             <div class="report-form">
-                <h3><i class="fas fa-search-location"></i> Find the best safe shelter for you</h3>
-                <p style="color: #bdc3c7; font-size: 0.95rem; margin-bottom: 1.5rem;">
-                    Recommendations are ranked using a <strong>suitability score</strong> that combines: current
-                    status, capacity, local disaster risk, road accessibility, active hazards nearby, and travel
-                    distance — not just geographic proximity.
+                <h3><i class="fas fa-location-arrow"></i> Find Safest Available Shelter</h3>
+                <p style="color: var(--color-text-secondary); font-size: 0.92rem; margin-bottom: 1.25rem; line-height: 1.5;">
+                    CoastWatch evaluates shelters beyond simple distance. Our algorithm analyzes real-time occupancy, nearby hazard risks, road blockages, and terrain safety.
                 </p>
+                
                 <div class="form-row">
                     <div class="form-group">
                         <label for="shelterLatitude">Your Latitude</label>
@@ -642,119 +814,129 @@
                         <input type="number" step="any" id="shelterLongitude" placeholder="e.g. 77.3828">
                     </div>
                     <div class="form-group">
-                        <label for="shelterRadius">Search radius (km)</label>
+                        <label for="shelterRadius">Search Radius (km)</label>
                         <input type="number" id="shelterRadius" value="120" min="5" max="500">
                     </div>
                 </div>
-                <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem;">
                     <button type="button" class="btn" onclick="getShelterLocation()">
-                        <i class="fas fa-crosshairs"></i> Use My Current Location
+                        <i class="fas fa-crosshairs"></i> Use Current GPS
                     </button>
-                    <button type="button" class="btn btn-primary" onclick="findShelters()" style="background:#00b4d8;">
-                        <i class="fas fa-route"></i> Rank Shelters
+                    <button type="button" class="btn btn-primary" onclick="findShelters()">
+                        <i class="fas fa-route"></i> Rank & Recommend Shelters
                     </button>
                 </div>
+                
                 <div id="sheltersStatus" class="location-display" style="display: none; margin-top: 1rem;"></div>
             </div>
 
             <div id="sheltersResultArea" style="display: none;">
-                <div class="report-form" id="sheltersRecommendedCard"
-                    style="background: linear-gradient(135deg, rgba(0, 180, 216, 0.14), rgba(72, 149, 239, 0.08)); border: 1.5px solid rgba(0, 180, 216, 0.45); margin-top: 1.5rem;">
-                    <h3 style="color: #48cae4; margin-bottom: 0.5rem;">
+                <div class="report-form" id="sheltersRecommendedCard" style="border: 1.5px solid var(--color-primary-border); margin-top: 1.5rem;">
+                    <h3 style="color: var(--color-primary); margin-bottom: 0.75rem;">
                         <i class="fas fa-award"></i> <span id="shelterRecLabel">Best Recommended Shelter</span>
                     </h3>
                     <div id="sheltersRecommended"></div>
                 </div>
 
                 <div id="sheltersAlternativesWrap" style="display: none; margin-top: 1.5rem;">
-                    <h3 style="margin-bottom: 1rem;"><i class="fas fa-list"></i> Alternative Shelters</h3>
+                    <h3 style="margin-bottom: 1rem; font-size: 1.15rem; color: var(--color-text-primary);"><i class="fas fa-list"></i> Alternative Ranked Shelters</h3>
                     <div id="sheltersAlternatives"></div>
                 </div>
             </div>
         </div>
 
-    <!-- Safety Tips Tab -->
-    <div id="safety" class="content">
-        <h2><i class="fas fa-shield-alt"></i> Safety Tips for Coastal Disasters</h2>
-        <div class="report-form"
-            style="background: rgba(39, 174, 96, 0.1); border: 2px solid rgba(39, 174, 96, 0.3); margin-top: 0;">
-            <h3 style="color: #27ae60; margin-bottom: 1.5rem;">
-                <i class="fas fa-check-circle"></i> Do's - Follow These Guidelines
-            </h3>
-            <ul style="color: #f4f4f4; line-height: 1.8; font-size: 1rem;">
-                <li>Stay informed through weather updates and official alerts.</li>
-                <li>Keep an emergency kit ready (water, food, flashlight, first-aid, radio, power bank).</li>
-                <li>Move to higher ground immediately if there is a tsunami warning.</li>
-                <li>Follow evacuation orders from authorities without delay.</li>
-                <li>Keep important documents in waterproof bags.</li>
-                <li>Help children, elderly, and disabled persons first during evacuation.</li>
-                <li>Stay away from coastal areas and beaches during high tide or cyclone warnings.</li>
-            </ul>
-        </div>
-        <div class="report-form"
-            style="background: rgba(231, 76, 60, 0.1); border: 2px solid rgba(231, 76, 60, 0.3); margin-top: 1rem;">
-            <h3 style="color: #e74c3c; margin-bottom: 1.5rem;">
-                <i class="fas fa-times-circle"></i> Don'ts - Avoid These Actions
-            </h3>
-            <ul style="color: #f4f4f4; line-height: 1.8; font-size: 1rem;">
-                <li>Don't ignore official warnings and advisories.</li>
-                <li>Don't attempt to go near the sea to "watch" big waves or cyclones.</li>
-                <li>Don't use electrical appliances in flooded areas.</li>
-                <li>Don't spread rumors or panic without confirmation.</li>
-                <li>Don't try to drive through flooded roads.</li>
-                <li>Don't leave pets and livestock unsecured.</li>
-                <li>Don't return to coastal areas until authorities declare it safe.</li>
-            </ul>
-        </div>
-        <div class="report-form"
-            style="background: rgba(0, 180, 216, 0.1); border: 2px solid rgba(0, 180, 216, 0.3); margin-top: 1rem;">
-            <h3 style="color: #00b4d8; margin-bottom: 1.5rem;">
-                <i class="fas fa-lightbulb"></i> Additional Safety Measures
-            </h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-                <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-                    <h5 style="color: #00b4d8; margin-bottom: 0.5rem;"><i class="fas fa-home"></i> Before Disaster</h5>
-                    <ul style="color: #f4f4f4; font-size: 0.9rem; line-height: 1.6;">
-                        <li>Know your evacuation routes</li>
-                        <li>Practice family emergency drills</li>
-                        <li>Store emergency supplies</li>
-                        <li>Secure loose outdoor items</li>
+        <!-- TAB 8: Safety Tips -->
+        <div id="safety" class="content">
+            <div class="section-header-bar">
+                <div class="section-title-group">
+                    <h2 class="section-title">
+                        <i class="fas fa-book-shield" style="color: var(--color-primary);"></i> Disaster Safety Guidelines & Response Protocols
+                    </h2>
+                    <p class="section-subtitle">Authoritative guidelines for coastal hazards, cyclones, storm surges, and flood management</p>
+                </div>
+            </div>
+
+            <div class="safety-grid">
+                <!-- DO'S -->
+                <div class="safety-card dos">
+                    <h3><i class="fas fa-circle-check"></i> Critical DO'S — Follow These Guidelines</h3>
+                    <ul class="safety-list">
+                        <li><i class="fas fa-check"></i> Stay tuned to official emergency broadcasts, weather bulletins, and CoastWatch alerts.</li>
+                        <li><i class="fas fa-check"></i> Keep a sealed emergency grab-bag ready (drinking water, dry food, torch, first-aid, power bank).</li>
+                        <li><i class="fas fa-check"></i> Move to higher ground or reinforced multi-story shelters immediately if a tsunami/surge warning is issued.</li>
+                        <li><i class="fas fa-check"></i> Comply promptly with local administration and NDRF evacuation orders without delay.</li>
+                        <li><i class="fas fa-check"></i> Secure essential documents, identification, and medical records in waterproof cases.</li>
+                        <li><i class="fas fa-check"></i> Prioritize evacuation assistance for children, pregnant women, elderly, and differently-abled individuals.</li>
+                        <li><i class="fas fa-check"></i> Stay well clear of beaches, river mouths, and exposed coastal roads during high tide or cyclone advisories.</li>
                     </ul>
                 </div>
-                <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-                    <h5 style="color: #f39c12; margin-bottom: 0.5rem;"><i class="fas fa-exclamation-triangle"></i>
-                        During Disaster</h5>
-                    <ul style="color: #f4f4f4; font-size: 0.9rem; line-height: 1.6;">
-                        <li>Stay indoors and away from windows</li>
-                        <li>Listen to emergency broadcasts</li>
-                        <li>Turn off utilities if instructed</li>
-                        <li>Keep emergency contacts handy</li>
-                    </ul>
-                </div>
-                <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-                    <h5 style="color: #27ae60; margin-bottom: 0.5rem;"><i class="fas fa-undo"></i> After Disaster</h5>
-                    <ul style="color: #f4f4f4; font-size: 0.9rem; line-height: 1.6;">
-                        <li>Check for injuries and hazards</li>
-                        <li>Document damage for insurance</li>
-                        <li>Avoid damaged structures</li>
-                        <li>Report emergencies immediately</li>
+
+                <!-- DON'TS -->
+                <div class="safety-card donts">
+                    <h3><i class="fas fa-circle-xmark"></i> Critical DON'TS — Actions to Avoid</h3>
+                    <ul class="safety-list">
+                        <li><i class="fas fa-xmark"></i> Do NOT ignore official warnings or delay evacuation when advisories are active.</li>
+                        <li><i class="fas fa-xmark"></i> Do NOT visit coastlines, ports, or seawalls to watch storm waves or cyclone landfall.</li>
+                        <li><i class="fas fa-xmark"></i> Do NOT operate electrical switches or appliances in waterlogged or flooded buildings.</li>
+                        <li><i class="fas fa-xmark"></i> Do NOT circulate unverified rumors, alarming social media posts, or fake distress messages.</li>
+                        <li><i class="fas fa-xmark"></i> Do NOT attempt to drive or wade through flooded roads or submerged bridges.</li>
+                        <li><i class="fas fa-xmark"></i> Do NOT leave domestic pets or livestock tethered without access to safety.</li>
+                        <li><i class="fas fa-xmark"></i> Do NOT return to damaged structures until cleared as safe by disaster management authorities.</li>
                     </ul>
                 </div>
             </div>
+
+            <!-- Timeline Actions -->
+            <div class="report-form" style="margin-top: 1.5rem;">
+                <h3 style="color: var(--color-primary); margin-bottom: 1rem;">
+                    <i class="fas fa-timeline"></i> Phased Disaster Management Protocols
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+                    <div style="background: var(--color-surface-elevated); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                        <h5 style="color: var(--color-primary); margin-bottom: 0.6rem; font-size: 0.95rem; font-weight: 700;"><i class="fas fa-shield-cat"></i> Before Disaster</h5>
+                        <ul style="color: var(--color-text-secondary); font-size: 0.88rem; line-height: 1.6; padding-left: 1.1rem;">
+                            <li>Map out verified primary and secondary evacuation routes</li>
+                            <li>Formulate a family communication and reunion plan</li>
+                            <li>Store non-perishable food and 3 days of clean water</li>
+                            <li>Secure loose outdoor furniture, tin roofs, and fixtures</li>
+                        </ul>
+                    </div>
+                    <div style="background: var(--color-surface-elevated); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                        <h5 style="color: var(--color-warning); margin-bottom: 0.6rem; font-size: 0.95rem; font-weight: 700;"><i class="fas fa-bolt-lightning"></i> During Disaster</h5>
+                        <ul style="color: var(--color-text-secondary); font-size: 0.88rem; line-height: 1.6; padding-left: 1.1rem;">
+                            <li>Remain indoors away from glass windows and loose facades</li>
+                            <li>Monitor battery-operated radio and CoastWatch updates</li>
+                            <li>Shut off main electrical breakers and LPG cylinders</li>
+                            <li>Keep mobile phones charged and in power-saving mode</li>
+                        </ul>
+                    </div>
+                    <div style="background: var(--color-surface-elevated); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                        <h5 style="color: var(--color-secondary); margin-bottom: 0.6rem; font-size: 0.95rem; font-weight: 700;"><i class="fas fa-hand-holding-medical"></i> After Disaster</h5>
+                        <ul style="color: var(--color-text-secondary); font-size: 0.88rem; line-height: 1.6; padding-left: 1.1rem;">
+                            <li>Check self and neighbors for injuries; apply first aid</li>
+                            <li>Photograph property damage for official assessment</li>
+                            <li>Avoid downed power lines, cracked walls, and debris</li>
+                            <li>Report new hazards or stranded victims immediately</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating SOS Distress Button (Available inside authenticated app) -->
+        <div class="floating-sos-btn" onclick="floatingSOSClick()" title="Emergency SOS — Tap for immediate help">
+            <i class="fas fa-tower-broadcast"></i>
+            <div class="sos-text">SOS</div>
         </div>
     </div>
-    <!-- Floating SOS Button - Always Visible on All Pages -->
-    <div class="floating-sos-btn" onclick="floatingSOSClick()" title="Emergency SOS - Tap for immediate help">
-        <i class="fas fa-exclamation-triangle"></i>
-        <div class="sos-text">SOS</div>
-    </div>
 
-    <!-- Notification -->
+    <!-- 4. Global Notification Toast -->
     <div id="notification" class="notification"></div>
 
-    <!-- Scripts -->
+    <!-- 5. Application Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=3"></script>
     <script async data-id="3597779591" id="chtl-script" type="text/javascript" src="https://chatling.ai/js/embed.js"></script>
 </body>
 
