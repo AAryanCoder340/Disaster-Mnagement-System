@@ -36,9 +36,9 @@ const SOS_STATUS_NOTE = {
   RESOLVED: 'This SOS incident has been marked as resolved. Stay safe.'
 };
 
-const API_BASE = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http') && !window.location.origin.includes('file://'))
-    ? window.location.origin
-    : 'http://localhost:3000';
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000'
+    : 'https://sih-project-0bu6.onrender.com';
 
 // Social signals data
 let socialSignals = [];
