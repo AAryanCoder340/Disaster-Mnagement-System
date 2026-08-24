@@ -19,7 +19,11 @@ router.get('/signals', (req, res) => {
       simulated: s.simulated === 1
     }));
     
-    res.json({ success: true, signals: formatted });
+    res.json({ 
+      success: true, 
+      signals: formatted,
+      provider: process.env.SOCIAL_DATA_PROVIDER || 'mock'
+    });
   } catch (error) {
     console.error('GET /api/social/signals error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch social signals' });
