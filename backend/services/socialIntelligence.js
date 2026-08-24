@@ -255,7 +255,7 @@ class SocialIntelligenceService {
     }
     
     if (added > 0) {
-      broadcast({ type: 'SOCIAL_SIGNALS_UPDATED' });
+      broadcast('social-signals-updated', { type: 'SOCIAL_SIGNALS_UPDATED' });
     }
   }
 }

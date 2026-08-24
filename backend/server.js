@@ -20,6 +20,13 @@ const { addClient } = require('./lib/sse');
 const { startOfficialIngest } = require('./services/ingest');
 const { startSocialIngest } = require('./services/socialIntelligence');
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection at:', promise, 'reason:', reason);
+});
+
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const frontendRoot = path.join(__dirname, '..');
